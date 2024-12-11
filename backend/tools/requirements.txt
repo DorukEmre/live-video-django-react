@@ -1,0 +1,5 @@
+Django>=4.2.16
+# For PostgreSQL
+psycopg2-binary>=2.9.9
+# Channels for WebSockets
+channels>=4.1.0
