@@ -1,0 +1,30 @@
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Virtual environments
+env/
+venv/
+.venv/
+
+# Django
+*.sqlite3
+*.log
+
+# Docker
+*.pid
+*.seed
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+.env
+*.pem
+
+# Ignore static files collected by collectstatic
+volumes/frontend/
