@@ -1,9 +1,9 @@
 #!/bin/sh
 
-# sleep 1
-# until nc -z postgres 5432 > /dev/null 2>&1; do
-#   sleep 1
-# done
+sleep 1
+until nc -z postgres 5432 > /dev/null 2>&1; do
+  sleep 1
+done
 
 # # Check if Django project directory exists
 # if [ ! -d "livevideo" ]; then
@@ -17,8 +17,6 @@
 # cp -f /tmp/manage.py .
 
 # Migrate the database
-echo "--Making migrations livevideo..."
-python manage.py makemigrations livevideo
 echo "--Making migrations..."
 python manage.py makemigrations
 

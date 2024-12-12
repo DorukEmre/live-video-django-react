@@ -199,8 +199,9 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 # for serving static files in production
-STATICFILES_DIRS = [BASE_DIR / 'frontendDist']
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+if os.environ.get('MODE') == 'production':
+  STATICFILES_DIRS = [BASE_DIR / 'frontendDist']
+  STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
