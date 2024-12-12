@@ -5,6 +5,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        MODE: development
     image: django
     container_name: django
     ports:
@@ -17,6 +19,7 @@ services:
       - livevideo
     volumes:
       - ./backend:/usr/src/app
+      # - ./frontend/dist:/usr/src/app/frontendDist # for production
     depends_on:
       - postgres
     # restart: unless-stopped
@@ -25,22 +28,26 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: development
     image: react
     container_name: react
-    ports:
-      - 5173:5000
+    ports: # for development
+      - 5173:5173
+    # expose: # for production
+    #   - 5173
     env_file:
       - .env
-    # environment:
-    #   - CHOKIDAR_USEPOLLING=true
-    # tty: true
+    environment:
+      - PUBLIC_URL=/
+      - REACT_APP_API_BASE_URL=http://localhost:8080
     networks:
       - livevideo
     volumes:
-      - ./frontend:/app
       - /app/node_modules # to avoid overwriting node_modules
-    depends_on:
-      - django
+      - ./frontend:/app # for development (for live changes to be reflected)
+      # - ./frontend/dist:/app/dist # for production (build directory)
+    # depends_on:
+    #   - django
 
   postgres:
     image: postgres:16.4-alpine3.20
@@ -61,20 +68,6 @@ services:
 
 
 volumes:
-  # frontend:
-  #   name: frontend
-  #   driver: local
-  #   driver_opts:
-  #     type: none
-  #     o: bind
-  #     device: ./frontend/
-  # backend:
-  #   name: backend
-  #   driver: local
-  #   driver_opts:
-  #     type: none
-  #     o: bind
-  #     device: ./backend/
   postgres_database:
     name: postgres_database
     driver: local

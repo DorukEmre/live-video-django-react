@@ -27,4 +27,5 @@ Thumbs.db
 *.pem
 
 # Ignore static files collected by collectstatic
-volumes/frontend/
+staticfiles/
+frontendDist/

@@ -3,13 +3,13 @@ SHELL	= /bin/sh
 NAME	= livevideo
 
 
-all:
-	docker compose build --progress=plain
-	docker compose up
-# docker compose up --build
+all: create_volumes_dirs
+	docker compose up --build
+# docker compose build --progress=plain
+# docker compose up
 
 create_volumes_dirs: # creates volume directories if needed
-	mkdir -p ./volumes/frontend ./volumes/backend ./volumes/certs ./volumes/logs
+	mkdir -p ./frontend/dist
 
 down:
 	docker compose down -v
