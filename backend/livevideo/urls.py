@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 urlpatterns = [
     # path('admin/', admin.site.urls),
     path('api/set-csrf-cookie/', views.set_csrf_cookie, name='set_csrf_cookie'),
-    path('api/random-number/', views.get_random_number, name='get_random_number'),
-    path('api/get-user-id/', views.get_user_id, name='get_user_id'),
+
+    path('api/get-user-details/', views.get_user_details, name='get_user_details'),
     
     # path("api/make-call/<uuid:user_id>/", views.make_call, name="make_call"), 
     path("api/make-call/", views.make_call, name="make_call"), 

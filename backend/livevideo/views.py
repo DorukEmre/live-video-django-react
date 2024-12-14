@@ -1,9 +1,7 @@
-import json
 import random
 import uuid
 from django.http import JsonResponse
-from django.middleware.csrf import get_token
-from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
+from django.views.decorators.csrf import ensure_csrf_cookie
 import logging
 logger = logging.getLogger(__name__)
 
@@ -12,51 +10,36 @@ logger = logging.getLogger(__name__)
 def set_csrf_cookie(request):
     return JsonResponse({'message': 'CSRF cookie set'})
 
-# @ensure_csrf_cookie
-# def set_csrf_cookie(request):
-#     logger.debug('set_csrf_cookie')
-#     return JsonResponse({'message': 'hello'})
-#     csrf_token = get_token(request)
-#     # return JsonResponse({'csrf_token': csrf_token})
-#     response = JsonResponse({'message': 'CSRF cookie set', 'csrf_token': csrf_token})
-#     response.set_cookie('csrftoken', csrf_token, httponly=False, secure=False, samesite='None')
-#     logger.debug(f'csrf_token: {csrf_token}')
-#     logger.debug(f'cookie: {response.cookies}')
-#     return response
-    
-phone_number_map = {}
+user_map = {}
 
 def generate_phone_number():
     while True:
         phone_number = random.randint(10000, 99999)
-        if phone_number not in phone_number_map:
+        if phone_number not in user_map:
             return phone_number
 
-def get_phone_number(request):
-    phone_number = generate_phone_number()
-    session_id = request.session.session_key  # Use Django's session framework
-    phone_number_map[phone_number] = session_id
-    request.session['phone_number'] = phone_number
-    return JsonResponse({'phone_number': phone_number})
-
-
-def get_random_number(request):
-    random_number = random.randint(1, 100)
-    return JsonResponse({'random_number': random_number})
-
-
-def get_user_id(request):
+def get_user_details(request):
     logger.debug('get_user_id')
     if not request.session.get('user_id'):
         request.session['user_id'] = str(uuid.uuid4())
-    logger.debug(f'user_id: {request.session["user_id"]}')
-    return JsonResponse({'user_id': request.session['user_id']})
+        user_phone = generate_phone_number()
+        user_map[user_phone] = request.session['user_id']
+        request.session['user_phone'] = user_phone
+    # session_id = request.session.session_key # Django's session framework
+    # logger.debug(f'session_id: {session_id}')
+    logger.debug(f'get_user_id > request.session: {dict(request.session)}')
+    return JsonResponse({'user_id': request.session['user_id'], 'user_phone': request.session['user_phone']})
 
 def make_call(request):
     logger.debug('make_call')
+    logger.debug(f'make_call > request.session: {dict(request.session)}')
+    logger.debug(f'make_call > user_map: {user_map}')
     if request.method != 'POST':
         return JsonResponse({'error': 'POST method required'})
+    from_id = request.POST.get('fromId')
+    to_phone = request.POST.get('toPhone')
 
-    phone_number = request.POST.get('phoneNumber')
-    logger.debug(f'phone_number: {phone_number}')
-    return JsonResponse({'message': 'hello', 'phone_number': phone_number})
+    if not from_id or not from_id == request.session['user_id']:
+        return JsonResponse({'status': 'error', 'message': 'Invalid fromId'})
+    logger.debug(f'to_phone: {to_phone}')
+    return JsonResponse({'status': 'success', 'message': 'hello', 'to_phone': to_phone})
