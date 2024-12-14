@@ -33,11 +33,6 @@ else:
     DEBUG = True
     logger.error('--settings.py > Running in development mode')
 
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    '0.0.0.0',
-]
 
 # Logging
 
@@ -208,9 +203,33 @@ if os.environ.get('MODE') == 'production':
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+
+
+
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '0.0.0.0',
+]
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080",
     "http://0.0.0.0:8080",
     "http://localhost:5173", # for development
     "http://0.0.0.0:5173", # for development
 ]
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8080",
+    "http://0.0.0.0:8080",
+    "http://localhost:5173",
+    "http://0.0.0.0:5173",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+CSRF_COOKIE_DOMAIN = 'localhost'
+CSRF_COOKIE_SAMESITE = 'Lax'  # or 'Strict' or 'None' based on your requirements
+CSRF_COOKIE_SECURE = False  # Set to True if using HTTPS
+# CSRF_COOKIE_SECURE = os.environ.get('MODE') == 'production'
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_NAME = 'csrftoken'
