@@ -1,96 +1,138 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 import {
   videoCallIcon, videoCamIcon, globeIcon, copyIcon, checkIcon
 } from './js/images';
-import './App.css'
-import { getCookie } from './js/utils';
-import CSRFToken from './components/CSRFToken';
+import './App.css';
+// import { getCookie } from './js/utils';
+// import CSRFToken from './components/CSRFToken';
 
 function App() {
-  const [userId, setUserId] = useState(0);
   const [userPhone, setUserPhone] = useState(0);
   const [signalingSocket, setSignalingSocket] = useState(null);
+  // const userPhoneRef = useRef(userPhone);
 
   const baseURL = process.env.REACT_APP_API_BASE_URL || '';
   const wsURL = baseURL.replace('http', 'ws');
   const nodeenv = process.env.NODE_ENV;
 
   useEffect(() => {
+    // Get userPhone on page load
+    const getUserDetails = async () => {
+      let url = `${baseURL}/api/get-user-details/`;
+      try {
+        const response = await axios.get(url, { withCredentials: true });
+        // console.log("response.data: ", response.data);
+        setUserPhone(response.data.user_phone);
 
-    const initialiseConnection = async () => {
-      // Get userId and userPhone on page load
-      const getUserDetails = async () => {
-        let url = `${baseURL}/api/get-user-details/`;
-        try {
-          const response = await axios.get(url, { withCredentials: true });
-          // console.log("response.data: ", response.data);
-          setUserId(response.data.user_id);
-          setUserPhone(response.data.user_phone);
+        console.log('getUserDetails > response.data', response.data)
+        return response.data;
 
-          console.log('getUserDetails > response.data', response.data)
-          return response.data;
-
-        } catch (error) {
-          console.error('Error fetching: ', error);
-        }
+      } catch (error) {
+        console.error('Error fetching: ', error);
       }
-
-      // Open websocket connection
-      const openSignalingSocket = (data) => {
-        try {
-          const ws = new WebSocket(`${wsURL}/ws/call/`);
-
-          ws.onopen = () => {
-            console.log('openWebSocket > WebSocket connected');
-            console.log('openWebSocket > data', data)
-            // Register the user with their phone number
-            ws.send(JSON.stringify({ type: 'register', user_id: data.user_id, user_phone: data.user_phone }));
-          };
-
-          ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            handleIncomingSignalingData(data);
-          };
-
-          ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
-          };
-
-          ws.onclose = () => {
-            console.log('WebSocket closed');
-          };
-
-          setSignalingSocket(ws);
-        } catch (error) {
-          console.error('Error initialising WebSocket:', error);
-        }
-      }
-
-      const data = await getUserDetails();
-      console.log('initialiseConnection > data', data)
-      openSignalingSocket(data);
     }
-    initialiseConnection();
+    getUserDetails();
+  }, []);
+
+  useEffect(() => {
+    // Open websocket connection when userPhone is available
+    const openSignalingSocket = () => {
+      try {
+        const ws = new WebSocket(`${wsURL}/ws/call/`);
+
+        ws.onopen = () => {
+          console.log('openWebSocket > WebSocket opened, registering userPhone:', userPhone);
+          ws.send(JSON.stringify({
+            type: 'register',
+            user_phone: userPhone,
+          }));
+        };
+
+        ws.onerror = (error) => {
+          console.error('WebSocket error:', error);
+        };
+
+        ws.onclose = () => {
+          console.log('WebSocket closed');
+        };
+
+        setSignalingSocket(ws);
+      } catch (error) {
+        console.error('Error initialising WebSocket:', error);
+      }
+    }
+
+    if (userPhone !== 0) {
+      if (signalingSocket) {
+        signalingSocket.close();
+      }
+      openSignalingSocket();
+    };
 
     return () => {
       if (signalingSocket) {
         signalingSocket.close();
       }
     };
-  }, []);
+  }, [userPhone]);
 
+  useEffect(() => {
+    // Set up the onmessage event handler when signalingSocket is available
+    if (signalingSocket) {
+      signalingSocket.onmessage = (event) => {
+        const eventData = JSON.parse(event.data);
+        handleIncomingSignalingData(eventData);
+      };
+    }
+  }, [signalingSocket]);
+
+
+  const sendSignalingMessage = (socket, message) => {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify(message));
+      console.log('sendSignalingMessage > Signaling message sent via WebSocket:', message);
+    } else {
+      console.error('WebSocket is not connected.');
+    }
+  };
 
   const handleIncomingSignalingData = (data) => {
-    if (data.type === 'incoming_call') {
-      const confirmed = confirm(`Incoming call from ${data.from}. Accept?`);
+    console.log('handleIncomingSignalingData > data', data, 'userPhone', userPhone);
+
+    if (data.type === 'call' && data.receiver === userPhone) { // incoming call
+      const confirmed = confirm(`Incoming call from ${data.caller}. Accept?`);
       if (confirmed) {
         // Handle accepting the call (e.g., start WebRTC negotiation)
-        console.log(`Accepted call from ${data.from}`);
+
+        console.log(`Accepted call from ${data.caller}`);
+
+        const answerData = {
+          type: 'answer',
+          caller: data.caller,
+          receiver: data.receiver,
+        };
+        sendSignalingMessage(signalingSocket, answerData);
       } else {
-        console.log(`Declined call from ${data.from}`);
+        console.log(`Declined call from ${data.caller}`);
+
+        const declineData = {
+          type: 'decline',
+          caller: data.caller,
+          receiver: data.receiver,
+        };
+        sendSignalingMessage(signalingSocket, declineData);
       }
+    }
+    else if (data.type === 'answer' && data.caller === userPhone) { // target answers the call
+      console.log(`Call from ${data.caller} answered by ${data.receiver}`);
+    }
+    else if (data.type === 'decline' && data.caller === userPhone) { // target declines the call
+      console.log(`Call from ${data.caller} declined by ${data.receiver}`);
+    }
+    else if (data.type === 'error') {
+      alert(`${data.message}`);
     }
     else {
       console.log('Unhandled signaling data:', data);
@@ -101,47 +143,19 @@ function App() {
 
   const makeCall = async (e) => {
     e.preventDefault();
-    const formData = new FormData(e.target);
+    const receiverPhone = parseInt(e.target.receiver.value, 10);
+    if (receiverPhone === userPhone) {
+      alert('You cannot call yourself');
+      return;
+    }
 
     const callData = {
       type: 'call',
-      toPhone: formData.get('toPhone'),
-      fromId: userId,
+      caller: userPhone,
+      receiver: receiverPhone,
     };
-
-    if (signalingSocket && signalingSocket.readyState === WebSocket.OPEN) {
-      signalingSocket.send(JSON.stringify(callData));
-      console.log('Call request sent via WebSocket:', callData);
-    } else {
-      console.error('WebSocket is not connected.');
-    }
+    sendSignalingMessage(signalingSocket, callData);
   };
-
-  // using axios post
-  // const makeCall = async (e) => {
-  //   e.preventDefault();
-  //   let url = `${baseURL}/api/make-call/`;
-  //   const formData = new FormData(e.target);
-  //   const csrftoken = getCookie('csrftoken');
-
-  //   // { "type": "call", "toPhone": "12345", "fromId": "uuid4", "offer": "<SDP_OFFER>" }
-
-  //   formData.set('type', 'call');
-  //   formData.set('fromId', userId);
-  //   console.log('formData', formData);
-
-  //   try {
-  //     const response = await axios.post(url, formData, {
-  //       withCredentials: true,
-  //       headers: {
-  //         'X-CSRFToken': csrftoken
-  //       }
-  //     });
-  //     console.log('Call made successfully:', response.data);
-  //   } catch (error) {
-  //     console.error('Error making call:', error);
-  //   }
-  // }
 
   const copyNumber = (e) => {
     navigator.clipboard.writeText(userPhone);
@@ -178,7 +192,7 @@ function App() {
 
         {/* <CSRFToken /> */}
 
-        <input type="text" name="toPhone" placeholder="Enter number to call" style={{ padding: '1em' }} />
+        <input type="number" name="receiver" placeholder="Enter number to call" style={{ padding: '1em' }} />
 
         <button type="submit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }} title='Make call'>
           <img src={videoCallIcon} alt="video call icon" style={{ height: '24px' }} />

@@ -13,8 +13,6 @@ urlpatterns = [
 
     path('api/get-user-details/', views.get_user_details, name='get_user_details'),
     
-    # path("api/make-call/<uuid:user_id>/", views.make_call, name="make_call"), 
-    path("api/make-call/", views.make_call, name="make_call"), 
 ]
 
 # serve react files in prod

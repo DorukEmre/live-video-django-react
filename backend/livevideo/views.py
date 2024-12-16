@@ -29,17 +29,3 @@ def get_user_details(request):
     # logger.debug(f'session_id: {session_id}')
     logger.debug(f'get_user_id > request.session: {dict(request.session)}')
     return JsonResponse({'user_id': request.session['user_id'], 'user_phone': request.session['user_phone']})
-
-def make_call(request):
-    logger.debug('make_call')
-    logger.debug(f'make_call > request.session: {dict(request.session)}')
-    logger.debug(f'make_call > user_map: {user_map}')
-    if request.method != 'POST':
-        return JsonResponse({'error': 'POST method required'})
-    from_id = request.POST.get('fromId')
-    to_phone = request.POST.get('toPhone')
-
-    if not from_id or not from_id == request.session['user_id']:
-        return JsonResponse({'status': 'error', 'message': 'Invalid fromId'})
-    logger.debug(f'to_phone: {to_phone}')
-    return JsonResponse({'status': 'success', 'message': 'hello', 'to_phone': to_phone})
