@@ -14,10 +14,17 @@ class SignalingConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         logger.debug(f'SignalingConsumer > disconnect')
-        for phone, session in phone_to_session.items():
-            if session == self.channel_name:
-                del phone_to_session[phone]
+        await self.unregister_phone()
+           
+    async def unregister_phone(self):
+        phone = None
+        for key, value in phone_to_session.items():
+            if value == self.channel_name:
+                phone = key
                 break
+        if phone:
+            logger.debug(f'unregister > phone: {phone}')
+            del phone_to_session[phone]
 
     async def receive(self, text_data):
         data = json.loads(text_data)
@@ -26,15 +33,13 @@ class SignalingConsumer(AsyncWebsocketConsumer):
 
         # register phone to WebSocket connection when user first loads the page
         if data['type'] == 'register' and data['user_phone'] != 0:
-            for phone, session in phone_to_session.items():
-                if session == self.channel_name:
-                    del phone_to_session[phone]
+            await self.unregister_phone()
             phone_to_session[data['user_phone']] = self.channel_name
             logger.debug(f'register > phone_to_session: {phone_to_session}')
 
         # when user calls, check target number exists and send message to target user
         elif data['type'] == 'call':
-            logger.debug(f'call > phone_to_session: {phone_to_session}')
+            # check if receiver is online
             if data['receiver'] not in phone_to_session:
                 await self.send(text_data=json.dumps({
                     'type': 'error',
@@ -57,6 +62,14 @@ class SignalingConsumer(AsyncWebsocketConsumer):
                 })
 
         elif data['type'] == 'answer':
+            # check if caller is still online
+            if data['caller'] not in phone_to_session:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'User is not online'
+                }))
+                return
+    
             target_channel = phone_to_session.get(data['caller'])
             if target_channel:
                 await self.channel_layer.send(target_channel, {
@@ -71,6 +84,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
                     "type": "decline.message",
                     "message": data
                 })
+
 
     async def call_message(self, event):
         await self.send(text_data=json.dumps(event["message"]))
