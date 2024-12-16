@@ -91,14 +91,14 @@ if os.environ.get('MODE') == 'production':
     ]
 
 INSTALLED_APPS += [
+    'channels',
+    'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'channels',
-    'corsheaders',
 ]
 
 
@@ -133,6 +133,14 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'livevideo.wsgi.application'
+
+# Channels
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
 
 
 # Database

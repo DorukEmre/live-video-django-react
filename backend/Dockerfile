@@ -21,4 +21,6 @@ RUN   chmod +x /tmp/entrypoint.sh
 
 ENTRYPOINT [ "/bin/sh", "/tmp/entrypoint.sh" ]
 
-CMD   ["python", "manage.py", "runserver", "0.0.0.0:8080"]
+# CMD   ["python", "manage.py", "runserver", "0.0.0.0:8080"]
+
+CMD   ["uvicorn", "livevideo.asgi:application", "--host", "0.0.0.0", "--port", "8080", "--reload"]

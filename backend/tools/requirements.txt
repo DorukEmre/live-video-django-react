@@ -1,11 +1,13 @@
-Django>=5
+Django>=5.1.4
 # For PostgreSQL
-psycopg2-binary>=2.9.9
+psycopg2-binary>=2.9.10
 # For HTTP requests
-requests>=2.26.0
+# requests>=2.32.3
 # Channels for WebSockets
-channels>=4.1.0
+channels>=4.2.0
+# ASGI server for WebSockets
+uvicorn[standard]>=0.34.0
 # For serving static files in production
-whitenoise>=6.0.0
-# For cors
+whitenoise>=6.8.2
+# For cors headers
 django-cors-headers>=4.6.0
