@@ -1,4 +1,4 @@
-The docker-compose.yml is for development only. Only the django Dockerfile is need to deploy on heroku.
+The docker-compose.yml is for development only. Only the django Dockerfile is needed to deploy on heroku.
 
 Use 'sudo make dev' in development
 Use 'sudo make build_and_deploy' to build the react static files and deploy the production version of django to heroku
