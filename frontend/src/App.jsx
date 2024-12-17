@@ -13,7 +13,7 @@ function App() {
   const [signalingSocket, setSignalingSocket] = useState(null);
   // const userPhoneRef = useRef(userPhone);
 
-  const baseURL = process.env.REACT_APP_API_BASE_URL || '';
+  const baseURL = (process.env.NODE_ENV === "production") ? process.env.REACT_APP_API_BASE_URL : process.env.REACT_APP_API_BASE_URL_DEV;
   const wsURL = baseURL.replace('http', 'ws');
   const nodeenv = process.env.NODE_ENV;
 

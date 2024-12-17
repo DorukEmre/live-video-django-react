@@ -2,14 +2,27 @@ SHELL	= /bin/sh
 
 NAME	= livevideo
 
+all: dev
 
-all: create_volumes_dirs
-	docker compose up --build
+dev: create_volumes_dirs
+	docker compose up --build react django
 # docker compose build --progress=plain
 # docker compose up
 
+build_and_deploy: create_volumes_dirs
+	rm -rf ./frontend/dist
+	rm -rf ./backend/frontendDist/*
+	rm -rf ./backend/staticfiles/*
+	docker compose up --build react_prod && \
+	cp -r ./frontend/dist/* ./backend/frontendDist/ && \
+	cd ./backend && \
+	heroku container:push web -a live-video && \
+	heroku container:release web -a live-video
+
+
 create_volumes_dirs: # creates volume directories if needed
-	mkdir -p ./frontend/dist
+	mkdir -p ./frontend/dist ./backend/frontendDist
+
 
 down:
 	docker compose down -v

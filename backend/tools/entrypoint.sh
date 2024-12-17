@@ -1,9 +1,9 @@
 #!/bin/sh
 
-sleep 1
-until nc -z postgres 5432 > /dev/null 2>&1; do
-  sleep 1
-done
+# sleep 1
+# until nc -z postgres 5432 > /dev/null 2>&1; do
+#   sleep 1
+# done
 
 # # Check if Django project directory exists
 # if [ ! -d "livevideo" ]; then
@@ -25,15 +25,18 @@ python manage.py migrate
 
 # Collect static files
 if [ "$MODE" = "production" ]; then
-  echo "--Waiting for React to build..."
-  until nc -z react 5173 > /dev/null 2>&1; do
-    sleep 1
-  done
+  # echo "--Waiting for React to build..."
+  # until nc -z react 5173 > /dev/null 2>&1; do
+  #   sleep 1
+  # done
   echo "--Collecting static files..."
   python manage.py collectstatic --noinput
 else
   echo "--Skipping collectstatic for development mode."
 fi
 
+echo "PORT: $PORT" 
+
 echo "--Django initialised successfully. Executing "$@""
-exec "$@"
+# exec "$@"
+exec gunicorn livevideo.asgi:application --bind 0.0.0.0:$PORT -k uvicorn.workers.UvicornWorker

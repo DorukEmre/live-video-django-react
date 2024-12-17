@@ -19,6 +19,8 @@ CMD   ["npm", "run", "dev", "--", "--host"]
 # for production (change target to production in docker-compose.yml)
 FROM  base AS production
 ENV   NODE_ENV=production
-RUN   npm install serve -g
-# deploy is "npm run build && serve -s dist -l 5173"
-CMD   [ "npm", "run", "deploy" ]
+CMD   [ "npm", "run", "build" ]
+
+# RUN   npm install serve -g
+# # deploy is "npm run build && serve -s dist -l 5173"
+# CMD   [ "npm", "run", "deploy" ]

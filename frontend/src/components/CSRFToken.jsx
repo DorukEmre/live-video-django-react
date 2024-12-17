@@ -3,7 +3,7 @@ import axios from 'axios';
 import { getCookie } from '../js/utils';
 
 async function setCSRFCookie() {
-  const baseURL = process.env.REACT_APP_API_BASE_URL || '';
+  const baseURL = (process.env.NODE_ENV === "production") ? process.env.REACT_APP_API_BASE_URL : process.env.REACT_APP_API_BASE_URL_DEV;
 
   let url = `${baseURL}/api/set-csrf-cookie/`;
   try {
