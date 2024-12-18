@@ -229,19 +229,31 @@ ALLOWED_HOSTS = [
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080",
-    "http://0.0.0.0:8080",
-    "http://localhost:5173", # for development
-    "http://0.0.0.0:5173", # for development
+    "http://localhost:5173",
+    "https://localhost:8080",
+    "https://localhost:5173",
     f'https://{os.getenv("ACTUALHOSTNAME")}:{os.getenv("PORT")}'
 ]
 
+if os.environ.get('MODE') == 'development':
+    CORS_ALLOWED_ORIGINS += [
+        f'https://{os.getenv("ACTUALHOSTNAME")}:8080',
+        f'https://{os.getenv("ACTUALHOSTNAME")}:5173'
+    ]
+
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8080",
-    "http://0.0.0.0:8080",
     "http://localhost:5173",
-    "http://0.0.0.0:5173",
+    "https://localhost:8080",
+    "https://localhost:5173",
     f'https://{os.getenv("ACTUALHOSTNAME")}:{os.getenv("PORT")}', 
 ]
+
+if os.environ.get('MODE') == 'development':
+    CSRF_TRUSTED_ORIGINS += [
+        f'https://{os.getenv("ACTUALHOSTNAME")}:8080',
+        f'https://{os.getenv("ACTUALHOSTNAME")}:5173'
+    ]
 
 CORS_ALLOW_CREDENTIALS = True
 CSRF_COOKIE_DOMAIN = 'localhost'

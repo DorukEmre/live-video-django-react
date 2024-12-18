@@ -39,4 +39,10 @@ echo "PORT: $PORT"
 
 echo "--Django initialised successfully. Executing "$@""
 # exec "$@"
-exec gunicorn livevideo.asgi:application --bind 0.0.0.0:$PORT -k uvicorn.workers.UvicornWorker
+
+if [ "$MODE" = "production" ]; then
+  exec gunicorn livevideo.asgi:application --bind 0.0.0.0:$PORT -k uvicorn.workers.UvicornWorker
+else
+  exec uvicorn livevideo.asgi:application --host 0.0.0.0 --port $PORT --reload \
+  --ssl-keyfile=./certs/key.pem --ssl-certfile=./certs/cert.pem
+fi

@@ -4,7 +4,7 @@ NAME	= livevideo
 
 all: dev
 
-dev: create_volumes_dirs
+dev: create_volumes_dirs certs
 	docker compose up --build react django
 # docker compose build --progress=plain
 # docker compose up
@@ -23,6 +23,12 @@ build_and_deploy: create_volumes_dirs
 create_volumes_dirs: # creates volume directories if needed
 	mkdir -p ./frontend/dist ./backend/frontendDist
 
+certs:
+	mkdir -p ./certs && cd ./certs && openssl req -x509 -nodes \
+		-newkey rsa:4096 -days 365 -keyout key.pem -out cert.pem \
+		-subj "/C=ES/L=Malaga/O=DE/CN=localhost" \
+		-addext "subjectAltName=DNS:localhost,IP:192.168.0.167" && \
+		cd .. && cp -r ./certs ./backend && cp -r ./certs ./frontend 
 
 down:
 	docker compose down -v
