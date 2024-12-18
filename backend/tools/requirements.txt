@@ -12,3 +12,5 @@ gunicorn
 whitenoise>=6.8.2
 # For cors headers
 django-cors-headers>=4.6.0
+# For pretty logs
+prettyprinter

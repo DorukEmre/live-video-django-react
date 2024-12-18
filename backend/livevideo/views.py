@@ -14,7 +14,8 @@ user_map = {}
 
 def generate_phone_number():
     while True:
-        phone_number = random.randint(10000, 99999)
+        # phone_number = random.randint(10000, 99999)
+        phone_number = random.randint(1, 9)
         if phone_number not in user_map:
             return phone_number
 
