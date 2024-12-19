@@ -17,7 +17,7 @@ def set_csrf_cookie(request):
 def generate_phone_number():
     while True:
         # phone_number = random.randint(10000, 99999)
-        phone_number = random.randint(1, 9)
+        phone_number = random.randint(10, 99)
         if phone_number not in user_map:
             return phone_number
 
@@ -27,10 +27,11 @@ def get_user_details(request):
 
     # Assign new number if no session, user_phone is not in user_map, or user_phone is in user_map but user_id is different
     if not request.session.get('user_id') or request.session.get('user_phone') not in user_map or user_map[request.session.get('user_phone')] != request.session.get('user_id'):
-        request.session['user_id'] = str(uuid.uuid4())
+        user_id = str(uuid.uuid4())
         user_phone = generate_phone_number()
-        user_map[user_phone] = request.session['user_id']
+        user_map[user_phone] = user_id
         request.session['user_phone'] = user_phone
+        request.session['user_id'] = user_id
         
     logger.debug(f'get_user_id > request.session: {dict(request.session)}')
     return JsonResponse({

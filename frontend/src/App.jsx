@@ -5,6 +5,7 @@ import {
   videoCallIcon, videoCamIcon, globeIcon, copyIcon, checkIcon, callEndIcon
 } from './js/images';
 import './App.css';
+import { use } from 'react';
 // import { getCookie } from './js/utils';
 // import CSRFToken from './components/CSRFToken';
 
@@ -13,6 +14,7 @@ function App() {
   const [remotePhone, setRemotePhone] = useState(0);
   const [signalingSocket, setSignalingSocket] = useState(null);
   const [inACall, setInACall] = useState(false);
+  const [popup, setPopup] = useState({ present: false, message: "", class: "" });
 
   // webrtc
   const [localStream, setLocalStream] = useState(null);
@@ -94,10 +96,19 @@ function App() {
   }, [signalingSocket, localStream, remoteStream]);
 
   useEffect(() => {
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = localStream;
+    if (localStream) {
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = localStream;
+      }
     }
   }, [localStream]);
+
+  useEffect(() => {
+    if (remoteStream) {
+      if (remoteVideoRef.current)
+        remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream]);
 
   useEffect(() => {
     // Close streams and peer connection when call ends
@@ -119,11 +130,17 @@ function App() {
         setPeerConnection(null);
       }
 
-      if (signalingSocket)
-        sendSignalingMessage({ type: 'hangup', remotePhone });
       setRemotePhone(0);
     }
   }, [inACall]);
+
+  useEffect(() => {
+    if (popup.present) {
+      setTimeout(() => {
+        setPopup({ present: false, message: "", class: "" });
+      }, 3000);
+    }
+  }, [popup]);
 
   const sendSignalingMessage = (message) => {
     if (signalingSocket && signalingSocket.readyState === WebSocket.OPEN) {
@@ -139,67 +156,60 @@ function App() {
     if (data.type !== 'candidate')
       console.log('handleIncomingSignalingData > data', data, 'userPhone', userPhone);
 
-    if (data.type === 'call' && data.receiverPhone === userPhone) { // incoming call
+    // incoming call
+    if (data.type === 'offer' && data.receiverPhone === userPhone) {
       const confirmed = confirm(`Incoming call from ${data.callerPhone}. Accept?`);
       if (confirmed) {
-        await startMediaStream(); //
-        createAnswer(data.callerPhone); // 
-
-        console.log(`Accepted call from ${data.callerPhone}`);
-
-        // sendSignalingMessage({
-        //   type: 'accept',
-        //   callerPhone: data.callerPhone, receiverPhone: data.receiverPhone,
-        // });
+        try {
+          const stream = await startMediaStream();
+          if (stream) {
+            setInACall(true);
+            setRemotePhone(data.callerPhone);
+            await handleOffer(data.offer, data.callerPhone, stream);
+          } else {
+            console.error("Failed to start local stream.");
+          }
+        } catch (error) {
+          console.error("Error in makeCall:", error);
+        }
       } else {
-        console.log(`Declined call from ${data.callerPhone}`);
-
         sendSignalingMessage({
           type: 'decline',
           callerPhone: data.callerPhone, receiverPhone: data.receiverPhone,
         });
       }
 
-    } else if (data.type === 'offer') {
-      try {
-        const stream = await startMediaStream();
-        if (stream) {
-          console.log('MediaStream started when receiving offer');
-          setInACall(true);
-          setRemotePhone(data.callerPhone);
-          await handleOffer(data.offer, data.callerPhone, stream);
-        } else {
-          console.error("Failed to start local stream.");
-        }
-      } catch (error) {
-        console.error("Error in makeCall:", error);
-      }
-
-    } else if (data.type === 'answer') {
-      await handleAnswer(data.answer);
-    } else if (data.type === 'candidate') {
+    }
+    else if (data.type === 'candidate') {
       await handleCandidate(data.candidate);
+
     }
-    else if (data.type === 'hangup') {
-      console.log(`Call ended by ${data.callerPhone}`);
+    else if (data.type === 'answer') {
+      await handleAnswer(data.answer);
+
+    }
+    // other user declines the call
+    else if (data.type === 'decline' && data.callerPhone === userPhone) {
       setInACall(false);
+      setPopup({ present: true, message: "Call was declined", class: "call-declined" });
+
     }
-    else if (data.type === 'accept' && data.callerPhone === userPhone) { // target answers the call
-      console.log(`Call from ${data.callerPhone} accepted by ${data.receiverPhone}`);
-    }
-    else if (data.type === 'decline' && data.callerPhone === userPhone) { // target declines the call
-      console.log(`Call from ${data.callerPhone} declined by ${data.receiverPhone}`);
+    // other user has hung up
+    else if (data.type === 'hangup') {
+      setInACall(false);
+      setPopup({ present: true, message: "Call ended", class: "call-hangup" });
+
     }
     else if (data.type === 'error') {
-      alert(`${data.message}`);
-      console.log('data', data)
       setInACall(false);
+      setPopup({ present: true, message: data.message, class: "error" });
+
     }
     else {
       console.log('Unhandled signaling data:', data);
     }
-    // Handle other signaling messages like ICE candidates, etc.
   };
+
 
   const startMediaStream = async () => {
     console.log('startMediaStream');
@@ -226,17 +236,12 @@ function App() {
 
     console.log('createOffer, setLocalStream:', stream);
     setLocalStream(stream);
-    // if (localVideoRef.current) {
-    //   localVideoRef.current.srcObject = stream;
-    // }
 
     // Triggered when a new media track is received from the remote peer.
     pc.ontrack = (event) => {
       console.log('createOffer, setRemoteStream');
       const [remoteStream] = event.streams;
       setRemoteStream(remoteStream);
-      if (remoteVideoRef.current)
-        remoteVideoRef.current.srcObject = remoteStream;
     };
 
     // Triggered when the ICE agent finds a new candidate
@@ -278,7 +283,6 @@ function App() {
       console.log('handleOffer, setRemoteStream');
       const [remoteStream] = event.streams;
       setRemoteStream(remoteStream);
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
     };
 
     pc.onicecandidate = (event) => {
@@ -302,25 +306,16 @@ function App() {
   };
 
   const handleCandidate = async (candidate) => {
-    if (peerConnection) {
-      await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    if (peerConnection && peerConnection.remoteDescription) {
+      try {
+        await peerConnection.addIceCandidate(candidate);
+        console.log('ICE candidate added successfully');
+      } catch (error) {
+        console.error('Error adding ICE candidate:', error);
+      }
     }
   };
 
-
-  // const makeCall = async (e) => {
-  //   e.preventDefault();
-  //   const receiverPhone = parseInt(e.target.receiverPhone.value, 10);
-  //   if (receiverPhone === userPhone) {
-  //     alert('You cannot call yourself');
-  //     return;
-  //   }
-
-  //   sendSignalingMessage(signalingSocket, {
-  //     type: 'call',
-  //     callerPhone: userPhone, receiverPhone: receiverPhone,
-  //   });
-  // };
 
   const makeCall = async (e) => {
     e.preventDefault();
@@ -345,6 +340,11 @@ function App() {
     }
   };
 
+  const hangUpCall = () => {
+    sendSignalingMessage({ type: 'hangup', callerPhone: userPhone, remotePhone });
+
+    setInACall(false);
+  }
 
   const copyNumber = (e) => {
     navigator.clipboard.writeText(userPhone);
@@ -364,10 +364,12 @@ function App() {
     }
   }
 
+
   return (
     <>
       {!inACall ?
         <div id='page'>
+
           <div className='flex-centered'>
             <div style={{ height: '3em', padding: '1.5em' }}>
               <img src={globeIcon} alt="call icon" />
@@ -401,14 +403,23 @@ function App() {
             </button>
 
           </div>
+
+          {popup.present &&
+            <div className={`flex-centered popup ${popup.class}`}>
+              <p>{popup.message}</p>
+            </div>
+          }
+
         </div>
         :
         <>
           <div className='video-container flex-centered'>
             <video ref={localVideoRef} autoPlay playsInline className='localVid' />
-            <video ref={remoteVideoRef} autoPlay playsInline className='remoteVid' />
-
-            <button onClick={() => setInACall(false)} className='hangup-button' title='Hang up'>
+            {!remoteStream
+              ? <p className='remoteVid'>Calling number: {remotePhone}</p>
+              : <video ref={remoteVideoRef} autoPlay playsInline className='remoteVid' />
+            }
+            <button onClick={hangUpCall} className='hangup-button' title='Hang up'>
               <img src={callEndIcon} alt="hang up icon" style={{ height: '48px' }} />
             </button>
           </div>

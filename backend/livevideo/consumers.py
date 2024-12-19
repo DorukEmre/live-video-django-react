@@ -41,30 +41,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
             phone_to_session[data['user_phone']] = self.channel_name
             logger.debug(f'register > phone_to_session: {pformat(phone_to_session)}')
 
-        # when user calls, check target number exists and send message to target user
-        elif data['type'] == 'call':
-            # check if receiver is online
-            if data['receiverPhone'] not in phone_to_session:
-                await self.send(text_data=json.dumps({
-                    'type': 'error',
-                    'message': 'User is not online'
-                }))
-                return
-            if data['receiverPhone'] == data['callerPhone']:
-                await self.send(text_data=json.dumps({
-                    'type': 'error',
-                    'message': 'Cannot call yourself'
-                }))
-                return
-
-            target_channel = phone_to_session.get(data['receiverPhone'])
-            logger.debug(f'target_channel: {target_channel}')
-            if target_channel:
-                await self.channel_layer.send(target_channel, {
-                    "type": "call.message",
-                    "message": data
-                })
-                
+        # when user calls, check target number exists and send message to target user                
         elif data['type'] == 'offer':
             # check if caller is still online
             if data['receiverPhone'] not in phone_to_session:
@@ -72,6 +49,13 @@ class SignalingConsumer(AsyncWebsocketConsumer):
                     'type': 'error',
                     'dataType': data['type'],
                     'message': 'User is not online'
+                }))
+                return
+            
+            if data['receiverPhone'] == data['callerPhone']:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Cannot call yourself'
                 }))
                 return
             
@@ -102,14 +86,6 @@ class SignalingConsumer(AsyncWebsocketConsumer):
                     "message": data
                 })
 
-        elif data['type'] == 'hangup':
-            target_channel = phone_to_session.get(data['remotePhone'])
-            if target_channel:
-                await self.channel_layer.send(target_channel, {
-                    "type": "hangup.message",
-                    "message": data
-                })
-
         elif data['type'] == 'decline':
             target_channel = phone_to_session.get(data['callerPhone'])
             if target_channel:
@@ -118,15 +94,14 @@ class SignalingConsumer(AsyncWebsocketConsumer):
                     "message": data
                 })
 
+        elif data['type'] == 'hangup':
+            target_channel = phone_to_session.get(data['remotePhone'])
+            if target_channel:
+                await self.channel_layer.send(target_channel, {
+                    "type": "hangup.message",
+                    "message": data
+                })
 
-    async def call_message(self, event):
-        await self.send(text_data=json.dumps(event["message"]))
-
-    async def accept_message(self, event):
-        await self.send(text_data=json.dumps(event["message"]))
-
-    async def decline_message(self, event):
-        await self.send(text_data=json.dumps(event["message"]))
 
     async def offer_message(self, event):
         await self.send(text_data=json.dumps(event["message"]))
@@ -135,6 +110,9 @@ class SignalingConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps(event["message"]))
 
     async def answer_message(self, event):
+        await self.send(text_data=json.dumps(event["message"]))
+
+    async def decline_message(self, event):
         await self.send(text_data=json.dumps(event["message"]))
 
     async def hangup_message(self, event):

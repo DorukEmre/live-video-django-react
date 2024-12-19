@@ -1,6 +1,9 @@
 :root {
   --color-100: #e02da7;
+  --color-300: #6c0000;
   --color-400: #5f0142;
+  --color-500: #EA6A00;
+  --color-510: #A44A00;
   --color-700: #2e0120;
   --color-900: #1a1a1a;
 }
@@ -10,6 +13,12 @@
   margin: 0 auto;
   text-align: center;
   height: 100%;
+}
+
+#page {
+  position: relative;
+  height: 100%;
+  width: 100%;
 }
 
 .flex-centered {
@@ -82,10 +91,12 @@ button {
 }
 
 .video-container {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   height: 100vh;
-  position: relative;
+  width: 100vw;
+  max-width: 800px;
 }
 
 .localVid,
@@ -126,6 +137,29 @@ button {
 .hangup-button:hover,
 .hangup-button:focus,
 .hangup-button:focus-visible {
-  border-color: transparent;
-  outline: 4px solid var(--color-400);
+  /* border: 1px solid white; */
+  outline: 4px solid var(--color-300);
+}
+
+.popup {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  color: white;
+  background-color: var(--color-900);
+  box-shadow: 0px 0px 20px 0px rgba(0, 0, 0, 0.8);
+  border: 2px solid black;
+  border-radius: 16px;
+  transform: translate(-50%, -50%);
+  width: 240px;
+  height: 80px;
+}
+
+.call-declined,
+.error {
+  background-color: var(--color-300);
+}
+
+.call-hangup {
+  background-color: var(--color-510);
 }
