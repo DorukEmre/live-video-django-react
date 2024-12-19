@@ -10,9 +10,9 @@ import './App.css';
 
 function App() {
   const [userPhone, setUserPhone] = useState(0);
+  const [remotePhone, setRemotePhone] = useState(0);
   const [signalingSocket, setSignalingSocket] = useState(null);
   const [inACall, setInACall] = useState(false);
-  // const userPhoneRef = useRef(userPhone);
 
   // webrtc
   const [localStream, setLocalStream] = useState(null);
@@ -31,7 +31,6 @@ function App() {
       let url = `${baseURL}/api/get-user-details/`;
       try {
         const response = await axios.get(url, { withCredentials: true });
-        // console.log("response.data: ", response.data);
         setUserPhone(response.data.user_phone);
 
         console.log('getUserDetails > response.data', response.data)
@@ -104,15 +103,25 @@ function App() {
     // Close streams and peer connection when call ends
     if (!inACall) {
       console.log('ending call');
-      if (localStream) localStream.getTracks().forEach(track => track.stop());
+      if (localStream) {
+        localStream.getTracks().forEach((track) => track.stop());
+        setLocalStream(null);
+      }
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
-      if (remoteStream) remoteStream.getTracks().forEach(track => track.stop());
+      if (remoteStream) {
+        remoteStream.getTracks().forEach((track) => track.stop());
+        setRemoteStream(null);
+      }
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
 
       if (peerConnection) {
         peerConnection.close();
         setPeerConnection(null);
       }
+
+      if (signalingSocket)
+        sendSignalingMessage({ type: 'hangup', remotePhone });
+      setRemotePhone(0);
     }
   }, [inACall]);
 
@@ -157,6 +166,7 @@ function App() {
         if (stream) {
           console.log('MediaStream started when receiving offer');
           setInACall(true);
+          setRemotePhone(data.callerPhone);
           await handleOffer(data.offer, data.callerPhone, stream);
         } else {
           console.error("Failed to start local stream.");
@@ -169,6 +179,10 @@ function App() {
       await handleAnswer(data.answer);
     } else if (data.type === 'candidate') {
       await handleCandidate(data.candidate);
+    }
+    else if (data.type === 'hangup') {
+      console.log(`Call ended by ${data.callerPhone}`);
+      setInACall(false);
     }
     else if (data.type === 'accept' && data.callerPhone === userPhone) { // target answers the call
       console.log(`Call from ${data.callerPhone} accepted by ${data.receiverPhone}`);
@@ -218,7 +232,7 @@ function App() {
 
     // Triggered when a new media track is received from the remote peer.
     pc.ontrack = (event) => {
-      console.log('createOffer, setRemoteStream > pc.ontrack:', event);
+      console.log('createOffer, setRemoteStream');
       const [remoteStream] = event.streams;
       setRemoteStream(remoteStream);
       if (remoteVideoRef.current)
@@ -261,7 +275,7 @@ function App() {
     }
 
     pc.ontrack = (event) => {
-      console.log('handleOffer, setRemoteStream > pc.ontrack:', event);
+      console.log('handleOffer, setRemoteStream');
       const [remoteStream] = event.streams;
       setRemoteStream(remoteStream);
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
@@ -321,8 +335,7 @@ function App() {
       if (stream) {
         console.log('MediaStream started when making call');
         setInACall(true);
-        // console.log('stream:', stream);
-        //   MediaStream { id: "{518ded96-7a7a-491b-9f36-dbc92da646d6}", active: true, onaddtrack: null, onremovetrack: null }
+        setRemotePhone(receiverPhone);
         await createOffer(receiverPhone, stream);
       } else {
         console.error("Failed to start local stream.");
@@ -372,7 +385,7 @@ function App() {
 
               <input type="number" name="receiverPhone" placeholder="Enter number to call" className='call-input' />
 
-              <button type="submit" className='call-button flex-centered' style={{ gap: '12px' }} title='Make call'>
+              <button type="submit" className='icon-button call-button flex-centered' style={{ gap: '12px' }} title='Make call'>
                 <img src={videoCamIcon} alt="video call icon" style={{ height: '24px' }} />
               </button>
 
@@ -383,7 +396,7 @@ function App() {
 
             <p>Or share this number to be called: <span className='user-phone'>{userPhone}</span></p>
 
-            <button id='copyButton' type="button" className='flex-centered' style={{ padding: '.25rem' }} onClick={copyNumber}>
+            <button id='copyButton' type="button" className='icon-button flex-centered' style={{ padding: '.25rem' }} onClick={copyNumber}>
               <img src={copyIcon} alt="copy icon" style={{ height: '1.2em' }} title='Copy number' />
             </button>
 
@@ -392,11 +405,11 @@ function App() {
         :
         <>
           <div className='video-container flex-centered'>
-            <video ref={localVideoRef} autoPlay playsInline />
-            <video ref={remoteVideoRef} autoPlay playsInline />
+            <video ref={localVideoRef} autoPlay playsInline className='localVid' />
+            <video ref={remoteVideoRef} autoPlay playsInline className='remoteVid' />
 
             <button onClick={() => setInACall(false)} className='hangup-button' title='Hang up'>
-              <img src={callEndIcon} alt="hang up icon" style={{ height: '24px' }} />
+              <img src={callEndIcon} alt="hang up icon" style={{ height: '48px' }} />
             </button>
           </div>
         </>

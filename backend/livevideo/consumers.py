@@ -102,6 +102,14 @@ class SignalingConsumer(AsyncWebsocketConsumer):
                     "message": data
                 })
 
+        elif data['type'] == 'hangup':
+            target_channel = phone_to_session.get(data['remotePhone'])
+            if target_channel:
+                await self.channel_layer.send(target_channel, {
+                    "type": "hangup.message",
+                    "message": data
+                })
+
         elif data['type'] == 'decline':
             target_channel = phone_to_session.get(data['callerPhone'])
             if target_channel:
@@ -127,4 +135,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps(event["message"]))
 
     async def answer_message(self, event):
+        await self.send(text_data=json.dumps(event["message"]))
+
+    async def hangup_message(self, event):
         await self.send(text_data=json.dumps(event["message"]))
