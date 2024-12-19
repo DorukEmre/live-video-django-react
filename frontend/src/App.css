@@ -1,6 +1,106 @@
 #root {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
   text-align: center;
+  height: 100%;
+}
+
+/* Remove arrows from number input */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.flex-centered {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  color: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+
+button:hover,
+button:focus,
+button:focus-visible {
+  outline: 2px solid #e02da7;
+}
+
+.input-container {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  border: none;
+  width: max-content;
+}
+
+.input-container:focus-within,
+.input-container:focus-visible {
+  outline: 2px solid #e02da7;
+}
+
+.call-input {
+  border-radius: 8px 0 0 8px;
+  border: none;
+  outline: none;
+  padding: 14.5px;
+}
+
+.call-button {
+  border-radius: 0 8px 8px 0;
+  border: none;
+  outline: none;
+  padding: 10px;
+}
+
+.call-button:hover,
+.call-button:focus,
+.call-button:focus-visible {
+  background-color: #5f0142;
+  border-color: transparent;
+  outline: none;
+}
+
+.user-phone {
+  color: #e02da7;
+  font-weight: 700;
+}
+
+.video-container {
+  display: flex;
+  flex-wrap: wrap;
+  height: 100vh;
+  position: relative;
+}
+
+.video-container video {
+  max-height: 100%;
+  max-width: 100%;
+}
+
+@media screen and (max-width: 768px) {
+  .video-container video {
+    height: 50%;
+  }
+}
+
+.hangup-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin: 1em;
 }

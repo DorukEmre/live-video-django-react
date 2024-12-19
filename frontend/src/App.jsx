@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 import {
-  videoCallIcon, videoCamIcon, globeIcon, copyIcon, checkIcon
+  videoCallIcon, videoCamIcon, globeIcon, copyIcon, checkIcon, callEndIcon
 } from './js/images';
 import './App.css';
 // import { getCookie } from './js/utils';
@@ -11,6 +11,7 @@ import './App.css';
 function App() {
   const [userPhone, setUserPhone] = useState(0);
   const [signalingSocket, setSignalingSocket] = useState(null);
+  const [inACall, setInACall] = useState(false);
   // const userPhoneRef = useRef(userPhone);
 
   // webrtc
@@ -93,23 +94,46 @@ function App() {
     }
   }, [signalingSocket, localStream, remoteStream]);
 
+  useEffect(() => {
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream]);
+
+  useEffect(() => {
+    // Close streams and peer connection when call ends
+    if (!inACall) {
+      console.log('ending call');
+      if (localStream) localStream.getTracks().forEach(track => track.stop());
+      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      if (remoteStream) remoteStream.getTracks().forEach(track => track.stop());
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+
+      if (peerConnection) {
+        peerConnection.close();
+        setPeerConnection(null);
+      }
+    }
+  }, [inACall]);
 
   const sendSignalingMessage = (message) => {
     if (signalingSocket && signalingSocket.readyState === WebSocket.OPEN) {
       signalingSocket.send(JSON.stringify(message));
-      console.log('sendSignalingMessage > Signaling message sent via WebSocket:', message);
+      if (message.type !== 'candidate')
+        console.log('sendSignalingMessage > Signaling message sent via WebSocket:', message);
     } else {
       console.error('WebSocket is not connected.');
     }
   };
 
   const handleIncomingSignalingData = async (data) => {
-    console.log('handleIncomingSignalingData > data', data, 'userPhone', userPhone);
+    if (data.type !== 'candidate')
+      console.log('handleIncomingSignalingData > data', data, 'userPhone', userPhone);
 
     if (data.type === 'call' && data.receiverPhone === userPhone) { // incoming call
       const confirmed = confirm(`Incoming call from ${data.callerPhone}. Accept?`);
       if (confirmed) {
-        await startLocalStream(); //
+        await startMediaStream(); //
         createAnswer(data.callerPhone); // 
 
         console.log(`Accepted call from ${data.callerPhone}`);
@@ -129,8 +153,10 @@ function App() {
 
     } else if (data.type === 'offer') {
       try {
-        const stream = await startLocalStream();
+        const stream = await startMediaStream();
         if (stream) {
+          console.log('MediaStream started when receiving offer');
+          setInACall(true);
           await handleOffer(data.offer, data.callerPhone, stream);
         } else {
           console.error("Failed to start local stream.");
@@ -153,16 +179,7 @@ function App() {
     else if (data.type === 'error') {
       alert(`${data.message}`);
       console.log('data', data)
-      // handle error
-      if (data.dataType === 'offer') {
-        if (localStream) {
-          // cancel stream
-          console.log('stopping local stream');
-          localStream.getTracks().forEach(track => track.stop());
-          localVideoRef.current.srcObject = null;
-
-        }
-      }
+      setInACall(false);
     }
     else {
       console.log('Unhandled signaling data:', data);
@@ -170,8 +187,8 @@ function App() {
     // Handle other signaling messages like ICE candidates, etc.
   };
 
-  const startLocalStream = async () => {
-    console.log('startLocalStream');
+  const startMediaStream = async () => {
+    console.log('startMediaStream');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 
@@ -185,29 +202,30 @@ function App() {
     console.log('createOffer > receiverPhone', receiverPhone);
     const pc = new RTCPeerConnection({
       iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' } // Google's public STUN server
+        { urls: 'stun:stun.l.google.com:19302' }
       ],
-      // iceTransportPolicy: 'relay' // only relay candidates
     });
     setPeerConnection(pc);
 
-    // Add local tracks from the provided stream
+    // Get the tracks in the MediaStream and add each track to the RTCPeerConnection. Any tracks that are added to the same stream on the local end of the connection will be on the same stream on the remote end.
     stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
+    console.log('createOffer, setLocalStream:', stream);
     setLocalStream(stream);
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = stream;
-    }
+    // if (localVideoRef.current) {
+    //   localVideoRef.current.srcObject = stream;
+    // }
 
-    // triggered when a new media track is received from the remote peer.
+    // Triggered when a new media track is received from the remote peer.
     pc.ontrack = (event) => {
-      console.log('createOffer > pc.ontrack:', event);
+      console.log('createOffer, setRemoteStream > pc.ontrack:', event);
       const [remoteStream] = event.streams;
       setRemoteStream(remoteStream);
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
+      if (remoteVideoRef.current)
+        remoteVideoRef.current.srcObject = remoteStream;
     };
 
-    // Handle ICE candidates
+    // Triggered when the ICE agent finds a new candidate
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         console.log('createOffer > pc.onicecandidate')
@@ -215,8 +233,12 @@ function App() {
       }
     };
 
+    // Initiate the creation of an SDP offer: includes information about any MediaStreamTrack objects already attached to the WebRTC session, codec, and options supported by the browser, and any candidates already gathered by the ICE agent,
     const offer = await pc.createOffer();
+
+    // Set the offer as the description of the local end of the connection
     await pc.setLocalDescription(offer);
+
     sendSignalingMessage({ type: 'offer', offer, callerPhone: userPhone, receiverPhone: receiverPhone });
   };
 
@@ -225,21 +247,21 @@ function App() {
     console.log('handleOffer > callerPhone', callerPhone);
     const pc = new RTCPeerConnection({
       iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' } // Google's public STUN server
+        { urls: 'stun:stun.l.google.com:19302' }
       ],
-      // iceTransportPolicy: 'relay' // only relay candidates
     });
     setPeerConnection(pc);
 
     stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
+    console.log('handleOffer, setLocalStream:', stream);
     setLocalStream(stream);
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = stream;
     }
 
     pc.ontrack = (event) => {
-      console.log('handleOffer > pc.ontrack:', event);
+      console.log('handleOffer, setRemoteStream > pc.ontrack:', event);
       const [remoteStream] = event.streams;
       setRemoteStream(remoteStream);
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
@@ -250,17 +272,6 @@ function App() {
         console.log('handleOffer > pc.onicecandidate')
         sendSignalingMessage({ type: 'candidate', candidate: event.candidate, receiverPhone: callerPhone });
       }
-      // // filter some candidates out
-      // if (event.candidate) {
-      //   const candidate = event.candidate.candidate;
-      //   if (!candidate.includes('172.')) { // Example: Skip Docker network candidates
-      //     sendSignalingMessage(signalingSocket, {
-      //       type: 'candidate',
-      //       candidate: event.candidate,
-      //       receiverPhone: receiverPhone
-      //     });
-      //   }
-      // }
     };
 
     await pc.setRemoteDescription(new RTCSessionDescription(offer));
@@ -306,8 +317,10 @@ function App() {
     }
 
     try {
-      const stream = await startLocalStream();
+      const stream = await startMediaStream();
       if (stream) {
+        console.log('MediaStream started when making call');
+        setInACall(true);
         // console.log('stream:', stream);
         //   MediaStream { id: "{518ded96-7a7a-491b-9f36-dbc92da646d6}", active: true, onaddtrack: null, onremovetrack: null }
         await createOffer(receiverPhone, stream);
@@ -340,42 +353,54 @@ function App() {
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ height: '3em', padding: '1.5em' }}>
-          <img src={globeIcon} alt="call icon" />
+      {!inACall ?
+        <div id='page'>
+          <div className='flex-centered'>
+            <div style={{ height: '3em', padding: '1.5em' }}>
+              <img src={globeIcon} alt="call icon" />
+            </div>
+            <h1>WebRTC Video Call</h1>
+            <div style={{ height: '3em', padding: '1.5em' }}>
+              <img src={videoCamIcon} alt="call icon" />
+            </div>
+          </div>
+          <p>{nodeenv} mode</p>
+
+          <form onSubmit={makeCall} className='flex-centered'>
+            {/* <CSRFToken /> */}
+            <div className='input-container flex-centered'>
+
+              <input type="number" name="receiverPhone" placeholder="Enter number to call" className='call-input' />
+
+              <button type="submit" className='call-button flex-centered' style={{ gap: '12px' }} title='Make call'>
+                <img src={videoCamIcon} alt="video call icon" style={{ height: '24px' }} />
+              </button>
+
+            </div>
+          </form>
+
+          <div className='flex-centered' style={{ padding: '2rem', gap: '12px' }}>
+
+            <p>Or share this number to be called: <span className='user-phone'>{userPhone}</span></p>
+
+            <button id='copyButton' type="button" className='flex-centered' style={{ padding: '.25rem' }} onClick={copyNumber}>
+              <img src={copyIcon} alt="copy icon" style={{ height: '1.2em' }} title='Copy number' />
+            </button>
+
+          </div>
         </div>
-        <h1>WebRTC Video Call</h1>
-        <div style={{ height: '3em', padding: '1.5em' }}>
-          <img src={videoCamIcon} alt="call icon" />
-        </div>
-      </div>
-      <p>{nodeenv} mode</p>
+        :
+        <>
+          <div className='video-container flex-centered'>
+            <video ref={localVideoRef} autoPlay playsInline />
+            <video ref={remoteVideoRef} autoPlay playsInline />
 
-      <form onSubmit={makeCall} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-
-        {/* <CSRFToken /> */}
-
-        <input type="number" name="receiverPhone" placeholder="Enter number to call" style={{ padding: '1em' }} />
-
-        <button type="submit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }} title='Make call'>
-          <img src={videoCallIcon} alt="video call icon" style={{ height: '24px' }} />
-          <span>Video Call</span>
-        </button>
-
-      </form>
-
-      <div style={{ padding: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-        <p>Or share this number to be called: {userPhone}</p>
-        <button id='copyButton' type="button" style={{ padding: '.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }} onClick={copyNumber}>
-          <img src={copyIcon} alt="copy icon" style={{ height: '18px' }} title='Copy number' />
-        </button>
-      </div>
-
-      <div>
-        <video ref={localVideoRef} autoPlay playsInline muted style={{ width: '300px' }} />
-        <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '300px' }} />
-      </div>
-
+            <button onClick={() => setInACall(false)} className='hangup-button' title='Hang up'>
+              <img src={callEndIcon} alt="hang up icon" style={{ height: '24px' }} />
+            </button>
+          </div>
+        </>
+      }
     </>
   )
 }

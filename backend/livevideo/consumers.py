@@ -31,7 +31,8 @@ class SignalingConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
-        logger.debug(f'SignalingConsumer > receive data: {pformat(data)}')
+        if data['type'] != 'candidate':
+            logger.debug(f'SignalingConsumer > receive data: {pformat(data)}')
         logger.debug(f'receive > phone_to_session: {pformat(phone_to_session)}')
 
         # register phone to WebSocket connection when user first loads the page
@@ -63,40 +64,27 @@ class SignalingConsumer(AsyncWebsocketConsumer):
                     "type": "call.message",
                     "message": data
                 })
-
-        elif data['type'] == 'accept':
+                
+        elif data['type'] == 'offer':
             # check if caller is still online
-            if data['callerPhone'] not in phone_to_session:
+            if data['receiverPhone'] not in phone_to_session:
                 await self.send(text_data=json.dumps({
                     'type': 'error',
+                    'dataType': data['type'],
                     'message': 'User is not online'
                 }))
                 return
-    
-            target_channel = phone_to_session.get(data['callerPhone'])
+            
+            target_channel = phone_to_session.get(data['receiverPhone'])
             if target_channel:
                 await self.channel_layer.send(target_channel, {
-                    "type": "accept.message",
+                    "type": "offer.message" if data['type'] == 'offer' else "candidate.message",
                     "message": data
                 })
         
-        elif data['type'] == 'decline':
-            target_channel = phone_to_session.get(data['callerPhone'])
-            if target_channel:
-                await self.channel_layer.send(target_channel, {
-                    "type": "decline.message",
-                    "message": data
-                })
-        
-        elif data['type'] in ['offer', 'candidate']:
+        elif data['type'] == 'candidate':
             # check if caller is still online
             if data['receiverPhone'] not in phone_to_session:
-                if data['type'] == 'offer':
-                    await self.send(text_data=json.dumps({
-                        'type': 'error',
-                        'dataType': data['type'],
-                        'message': 'User is not online'
-                    }))
                 return
             
             target_channel = phone_to_session.get(data['receiverPhone'])
@@ -114,6 +102,13 @@ class SignalingConsumer(AsyncWebsocketConsumer):
                     "message": data
                 })
 
+        elif data['type'] == 'decline':
+            target_channel = phone_to_session.get(data['callerPhone'])
+            if target_channel:
+                await self.channel_layer.send(target_channel, {
+                    "type": "decline.message",
+                    "message": data
+                })
 
 
     async def call_message(self, event):
