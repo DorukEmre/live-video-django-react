@@ -5,16 +5,18 @@ import {
   videoCallIcon, videoCamIcon, globeIcon, copyIcon, checkIcon, callEndIcon
 } from './js/images';
 import './App.css';
-import { use } from 'react';
-// import { getCookie } from './js/utils';
-// import CSRFToken from './components/CSRFToken';
+
+import { copyNumber } from './js/utils';
+import { peerConnectionConfig } from './js/webrtcUtils';
 
 function App() {
   const [userPhone, setUserPhone] = useState(0);
   const [remotePhone, setRemotePhone] = useState(0);
   const [signalingSocket, setSignalingSocket] = useState(null);
-  const [inACall, setInACall] = useState(false);
+  const [callStatus, setCallStatus] = useState(null);
   const [popup, setPopup] = useState({ present: false, message: "", class: "" });
+
+  const iceCandidateQueue = [];
 
   // webrtc
   const [localStream, setLocalStream] = useState(null);
@@ -29,20 +31,20 @@ function App() {
 
   useEffect(() => {
     // Get userPhone on page load
-    const getUserDetails = async () => {
+    const fetchUserDetails = async () => {
       let url = `${baseURL}/api/get-user-details/`;
       try {
         const response = await axios.get(url, { withCredentials: true });
         setUserPhone(response.data.user_phone);
 
-        console.log('getUserDetails > response.data', response.data)
+        console.log('fetchUserDetails > response.data', response.data)
         return response.data;
 
       } catch (error) {
         console.error('Error fetching: ', error);
       }
     }
-    getUserDetails();
+    fetchUserDetails();
   }, []);
 
   useEffect(() => {
@@ -73,6 +75,7 @@ function App() {
       }
     }
 
+    // Open new signaling websocket when userPhone is updated
     if (userPhone !== 0) {
       if (signalingSocket) signalingSocket.close();
       openSignalingSocket();
@@ -93,8 +96,17 @@ function App() {
         handleIncomingSignalingData(eventData);
       };
     }
-  }, [signalingSocket, localStream, remoteStream]);
+  }, [signalingSocket, localStream, remoteStream, peerConnection]);
 
+  useEffect(() => {
+    // Process each candidate in the queue when the peerConnection is established
+    console.log('peerConnection:', peerConnection);
+    if (peerConnection) {
+      processIceCandidateQueue();
+    }
+  }, [peerConnection]);
+
+  // Set local and remote streams when available
   useEffect(() => {
     if (localStream) {
       if (localVideoRef.current) {
@@ -110,15 +122,16 @@ function App() {
     }
   }, [remoteStream]);
 
+  // Close streams and peer connection when call ends
   useEffect(() => {
-    // Close streams and peer connection when call ends
-    if (!inACall) {
+    if (!callStatus) {
       console.log('ending call');
       if (localStream) {
         localStream.getTracks().forEach((track) => track.stop());
         setLocalStream(null);
       }
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
+
       if (remoteStream) {
         remoteStream.getTracks().forEach((track) => track.stop());
         setRemoteStream(null);
@@ -132,8 +145,9 @@ function App() {
 
       setRemotePhone(0);
     }
-  }, [inACall]);
+  }, [callStatus]);
 
+  // Reset popup message after display
   useEffect(() => {
     if (popup.present) {
       setTimeout(() => {
@@ -157,15 +171,23 @@ function App() {
       console.log('handleIncomingSignalingData > data', data, 'userPhone', userPhone);
 
     // incoming call
-    if (data.type === 'offer' && data.receiverPhone === userPhone) {
+    if (data.type === 'callRequest' && data.receiverPhone === userPhone) {
       const confirmed = confirm(`Incoming call from ${data.callerPhone}. Accept?`);
       if (confirmed) {
         try {
+          sendSignalingMessage({
+            type: 'accept',
+            callerPhone: data.callerPhone, receiverPhone: data.receiverPhone,
+          });
           const stream = await startMediaStream();
           if (stream) {
-            setInACall(true);
+            setCallStatus('incoming');
             setRemotePhone(data.callerPhone);
-            await handleOffer(data.offer, data.callerPhone, stream);
+            setLocalStream(stream);
+
+            // await handleOffer(data.offer, data.callerPhone, stream);
+            // Process queued candidates after setting the remote description
+            // processIceCandidateQueue();
           } else {
             console.error("Failed to start local stream.");
           }
@@ -180,8 +202,43 @@ function App() {
       }
 
     }
+    else if (data.type === 'accept' && data.callerPhone === userPhone) {
+      try {
+        console.log('handleIncomingSignalingData > accept, data.receiverPhone:', data.receiverPhone);
+        console.log('localStream', localStream)
+        if (localStream) {
+          await createOffer(data.receiverPhone);
+        } else {
+          console.error("No local stream.");
+        }
+      } catch (error) {
+        console.error("Error in createOffer:", error);
+      }
+    }
+    else if (data.type === 'offer' && data.receiverPhone === userPhone) {
+      try {
+        console.log('handleIncomingSignalingData > offer, localStream', localStream)
+        if (localStream) {
+          await handleOffer(data.offer, data.callerPhone);
+          // Process queued candidates after setting the remote description
+          // processIceCandidateQueue();
+        } else {
+          console.error("No local stream.");
+        }
+      } catch (error) {
+        console.error("Error in handleOffer:", error);
+      }
+
+    }
     else if (data.type === 'candidate') {
-      await handleCandidate(data.candidate);
+      // Queue candidates if peer connection or remote description is not ready
+      if (!peerConnection || !peerConnection.remoteDescription) {
+        iceCandidateQueue.push(data.candidate);
+        console.log('Candidate queued');
+        // console.log('Candidate queued:', data.candidate);
+      } else {
+        await handleCandidate(data.candidate);
+      }
 
     }
     else if (data.type === 'answer') {
@@ -190,18 +247,18 @@ function App() {
     }
     // other user declines the call
     else if (data.type === 'decline' && data.callerPhone === userPhone) {
-      setInACall(false);
+      setCallStatus(null);
       setPopup({ present: true, message: "Call was declined", class: "call-declined" });
 
     }
     // other user has hung up
     else if (data.type === 'hangup') {
-      setInACall(false);
+      setCallStatus(null);
       setPopup({ present: true, message: "Call ended", class: "call-hangup" });
 
     }
     else if (data.type === 'error') {
-      setInACall(false);
+      setCallStatus(null);
       setPopup({ present: true, message: data.message, class: "error" });
 
     }
@@ -210,6 +267,17 @@ function App() {
     }
   };
 
+  const processIceCandidateQueue = async () => {
+    while (iceCandidateQueue.length > 0) {
+      const candidate = iceCandidateQueue.shift();
+      try {
+        await handleCandidate(candidate);
+        console.log('Queued candidate processed successfully:', candidate);
+      } catch (error) {
+        console.error('Error processing queued candidate:', error);
+      }
+    }
+  };
 
   const startMediaStream = async () => {
     console.log('startMediaStream');
@@ -222,22 +290,15 @@ function App() {
     }
   };
 
-  const createOffer = async (receiverPhone, stream) => {
+  const createOffer = async (receiverPhone) => {
     console.log('createOffer > receiverPhone', receiverPhone);
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' }
-      ],
-    });
+    const pc = new RTCPeerConnection(peerConnectionConfig);
     setPeerConnection(pc);
 
     // Get the tracks in the MediaStream and add each track to the RTCPeerConnection. Any tracks that are added to the same stream on the local end of the connection will be on the same stream on the remote end.
-    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-    console.log('createOffer, setLocalStream:', stream);
-    setLocalStream(stream);
-
-    // Triggered when a new media track is received from the remote peer.
+    // Triggered when a new media track is received from the remote peer
     pc.ontrack = (event) => {
       console.log('createOffer, setRemoteStream');
       const [remoteStream] = event.streams;
@@ -247,7 +308,8 @@ function App() {
     // Triggered when the ICE agent finds a new candidate
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log('createOffer > pc.onicecandidate')
+        console.log('createOffer > pc.onicecandidate');
+        // console.log('createOffer > pc.onicecandidate:', event.candidate);
         sendSignalingMessage({ type: 'candidate', candidate: event.candidate, receiverPhone: receiverPhone });
       }
     };
@@ -256,47 +318,56 @@ function App() {
     const offer = await pc.createOffer();
 
     // Set the offer as the description of the local end of the connection
-    await pc.setLocalDescription(offer);
+    await pc.setLocalDescription(offer)
+      .then(() => console.log("Local description set"))
+      .catch((error) => console.error("Failed to set local description:", error));
 
     sendSignalingMessage({ type: 'offer', offer, callerPhone: userPhone, receiverPhone: receiverPhone });
   };
 
 
-  const handleOffer = async (offer, callerPhone, stream) => {
+  const handleOffer = async (offer, callerPhone) => {
     console.log('handleOffer > callerPhone', callerPhone);
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' }
-      ],
-    });
+    const pc = new RTCPeerConnection(peerConnectionConfig);
     setPeerConnection(pc);
 
-    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-    console.log('handleOffer, setLocalStream:', stream);
-    setLocalStream(stream);
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = stream;
-    }
+    // console.log('handleOffer, setLocalStream:', stream);
+    // setLocalStream(stream);
+    // if (localVideoRef.current) {
+    //   localVideoRef.current.srcObject = stream;
+    // }
 
     pc.ontrack = (event) => {
-      console.log('handleOffer, setRemoteStream');
+      console.log('handleOffer, pc.ontrack setRemoteStream, event: ', event);
+      console.log('handleOffer, pc.ontrack setRemoteStream, event.streams: ', event.streams);
       const [remoteStream] = event.streams;
       setRemoteStream(remoteStream);
     };
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log('handleOffer > pc.onicecandidate')
+        console.log('handleOffer > pc.onicecandidate');
+        // console.log('handleOffer > pc.onicecandidate:', event.candidate);
         sendSignalingMessage({ type: 'candidate', candidate: event.candidate, receiverPhone: callerPhone });
       }
     };
 
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    console.log('setRemoteDescription, offer:', offer)
+    await pc.setRemoteDescription(new RTCSessionDescription(offer))
+      .then(() => console.log("Remote description set successfully"))
+      .catch((error) => console.error("Failed to set remote description:", error));
     const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
+    console.log('setLocalDescription, answer:', answer)
+    await pc.setLocalDescription(answer)
+      .then(() => console.log("Local description set"))
+      .catch((error) => console.error("Failed to set local description:", error));
 
     sendSignalingMessage({ type: 'answer', answer, callerPhone, receiverPhone: userPhone });
+
+    // Process ICE candidates received before the remote description was set
+    // processIceCandidateQueue();
   };
 
   const handleAnswer = async (answer) => {
@@ -313,6 +384,8 @@ function App() {
       } catch (error) {
         console.error('Error adding ICE candidate:', error);
       }
+    } else {
+      console.error('Remote description not set or peer connection is closed');
     }
   };
 
@@ -321,20 +394,25 @@ function App() {
     e.preventDefault();
     const receiverPhone = parseInt(e.target.receiverPhone.value, 10);
     if (receiverPhone === userPhone) {
-      alert('You cannot call yourself');
+      setCallStatus(null);
+      setPopup({ present: true, message: 'You cannot call yourself', class: "error" });
       return;
     }
 
     try {
       const stream = await startMediaStream();
       if (stream) {
-        console.log('MediaStream started when making call');
-        setInACall(true);
+        console.log('MediaStream started when making call, stream:', stream);
+        setCallStatus('outgoing');
         setRemotePhone(receiverPhone);
-        await createOffer(receiverPhone, stream);
+        setLocalStream(stream);
+
+        // await createOffer(receiverPhone); // removed stream
       } else {
         console.error("Failed to start local stream.");
       }
+
+      sendSignalingMessage({ type: 'callRequest', callerPhone: userPhone, receiverPhone: receiverPhone });
     } catch (error) {
       console.error("Error in makeCall:", error);
     }
@@ -343,31 +421,14 @@ function App() {
   const hangUpCall = () => {
     sendSignalingMessage({ type: 'hangup', callerPhone: userPhone, remotePhone });
 
-    setInACall(false);
-  }
-
-  const copyNumber = (e) => {
-    navigator.clipboard.writeText(userPhone);
-    const copyButton = document.getElementById('copyButton');
-    if (copyButton) {
-      const img = copyButton.querySelector('img');
-      if (img) {
-        img.src = checkIcon;
-        img.alt = 'check icon';
-        img.title = 'Copied';
-        setTimeout(() => {
-          img.src = copyIcon;
-          img.alt = 'copy icon';
-          img.title = 'Copy number';
-        }, 1000);
-      }
-    }
+    setCallStatus(null);
   }
 
 
   return (
     <>
-      {!inACall ?
+      {!callStatus
+        ?
         <div id='page'>
 
           <div className='flex-centered'>
@@ -382,7 +443,6 @@ function App() {
           <p>{nodeenv} mode</p>
 
           <form onSubmit={makeCall} className='flex-centered'>
-            {/* <CSRFToken /> */}
             <div className='input-container flex-centered'>
 
               <input type="number" name="receiverPhone" placeholder="Enter number to call" className='call-input' />
@@ -396,7 +456,7 @@ function App() {
 
           <div className='flex-centered' style={{ padding: '2rem', gap: '12px' }}>
 
-            <p>Or share this number to be called: <span className='user-phone'>{userPhone}</span></p>
+            <p>Or share this number to be called: <span id='spanUserPhone' className='user-phone'>{userPhone}</span></p>
 
             <button id='copyButton' type="button" className='icon-button flex-centered' style={{ padding: '.25rem' }} onClick={copyNumber}>
               <img src={copyIcon} alt="copy icon" style={{ height: '1.2em' }} title='Copy number' />

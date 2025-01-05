@@ -1,3 +1,7 @@
+import {
+  copyIcon, checkIcon
+} from './images';
+
 import axios from 'axios';
 
 // async function fetchCsrfToken() {
@@ -34,4 +38,26 @@ function getCookie(name) {
   return cookieValue;
 }
 
-export { getCookie };
+const copyNumber = (e) => {
+  // Copy user phone to clipboard
+  const userPhone = document.getElementById('spanUserPhone').innerText;
+  navigator.clipboard.writeText(userPhone);
+
+  // Temporarily update copy button
+  const copyButton = document.getElementById('copyButton');
+  if (copyButton) {
+    const img = copyButton.querySelector('img');
+    if (img) {
+      img.src = checkIcon;
+      img.alt = 'check icon';
+      img.title = 'Copied';
+      setTimeout(() => {
+        img.src = copyIcon;
+        img.alt = 'copy icon';
+        img.title = 'Copy number';
+      }, 1000);
+    }
+  }
+}
+
+export { getCookie, copyNumber };
