@@ -33,7 +33,7 @@ heroku addons:create heroku-postgresql:hobby-dev -a live-video
 heroku run python manage.py migrate -a live-video -->
 
 
-To update:
+To update manually:
 
 ./backend$ `sudo heroku container:push web -a live-video`
 ./backend$ `sudo heroku container:release web -a live-video`

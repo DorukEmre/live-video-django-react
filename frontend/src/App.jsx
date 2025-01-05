@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-
-import {
-  videoCallIcon, videoCamIcon, globeIcon, copyIcon, checkIcon, callEndIcon
-} from './js/images';
 import './App.css';
 
-import { copyNumber } from './js/utils';
+import Home from './components/Home';
+import Call from './components/Call';
+
 import { peerConnectionConfig } from './js/webrtcUtils';
+
 
 function App() {
   const [userPhone, setUserPhone] = useState(0);
@@ -27,7 +26,6 @@ function App() {
 
   const baseURL = (process.env.NODE_ENV === "production") ? process.env.REACT_APP_API_BASE_URL : process.env.REACT_APP_API_BASE_URL_DEV;
   const wsURL = baseURL.replace('http', 'ws');
-  const nodeenv = process.env.NODE_ENV;
 
   useEffect(() => {
     // Get userPhone on page load
@@ -35,10 +33,9 @@ function App() {
       let url = `${baseURL}/api/get-user-details/`;
       try {
         const response = await axios.get(url, { withCredentials: true });
-        setUserPhone(response.data.user_phone);
 
         console.log('fetchUserDetails > response.data', response.data)
-        return response.data;
+        setUserPhone(response.data.user_phone);
 
       } catch (error) {
         console.error('Error fetching: ', error);
@@ -70,6 +67,7 @@ function App() {
         };
 
         setSignalingSocket(ws);
+
       } catch (error) {
         console.error('Error initialising WebSocket:', error);
       }
@@ -147,14 +145,6 @@ function App() {
     }
   }, [callStatus]);
 
-  // Reset popup message after display
-  useEffect(() => {
-    if (popup.present) {
-      setTimeout(() => {
-        setPopup({ present: false, message: "", class: "" });
-      }, 3000);
-    }
-  }, [popup]);
 
   const sendSignalingMessage = (message) => {
     if (signalingSocket && signalingSocket.readyState === WebSocket.OPEN) {
@@ -170,38 +160,41 @@ function App() {
     if (data.type !== 'candidate')
       console.log('handleIncomingSignalingData > data', data, 'userPhone', userPhone);
 
-    // incoming call
+    // incoming call request
     if (data.type === 'callRequest' && data.receiverPhone === userPhone) {
       const confirmed = confirm(`Incoming call from ${data.callerPhone}. Accept?`);
       if (confirmed) {
         try {
-          sendSignalingMessage({
-            type: 'accept',
-            callerPhone: data.callerPhone, receiverPhone: data.receiverPhone,
-          });
           const stream = await startMediaStream();
           if (stream) {
             setCallStatus('incoming');
             setRemotePhone(data.callerPhone);
             setLocalStream(stream);
 
-            // await handleOffer(data.offer, data.callerPhone, stream);
-            // Process queued candidates after setting the remote description
-            // processIceCandidateQueue();
           } else {
             console.error("Failed to start local stream.");
           }
+
+          sendSignalingMessage({
+            type: 'accept',
+            callerPhone: data.callerPhone,
+            receiverPhone: data.receiverPhone,
+          });
+
         } catch (error) {
           console.error("Error in makeCall:", error);
         }
+
       } else {
         sendSignalingMessage({
           type: 'decline',
-          callerPhone: data.callerPhone, receiverPhone: data.receiverPhone,
+          callerPhone: data.callerPhone,
+          receiverPhone: data.receiverPhone,
         });
       }
 
     }
+    // Receiver accepted call request. Caller create and send offer
     else if (data.type === 'accept' && data.callerPhone === userPhone) {
       try {
         console.log('handleIncomingSignalingData > accept, data.receiverPhone:', data.receiverPhone);
@@ -215,6 +208,7 @@ function App() {
         console.error("Error in createOffer:", error);
       }
     }
+    // Offer received from caller. Receiver create and send answer
     else if (data.type === 'offer' && data.receiverPhone === userPhone) {
       try {
         console.log('handleIncomingSignalingData > offer, localStream', localStream)
@@ -230,6 +224,7 @@ function App() {
       }
 
     }
+    // ICE candidate received
     else if (data.type === 'candidate') {
       // Queue candidates if peer connection or remote description is not ready
       if (!peerConnection || !peerConnection.remoteDescription) {
@@ -241,17 +236,18 @@ function App() {
       }
 
     }
+    // Answer received from receiver. Caller set remote description 
     else if (data.type === 'answer') {
       await handleAnswer(data.answer);
 
     }
-    // other user declines the call
+    // Receiver declined the call
     else if (data.type === 'decline' && data.callerPhone === userPhone) {
       setCallStatus(null);
       setPopup({ present: true, message: "Call was declined", class: "call-declined" });
 
     }
-    // other user has hung up
+    // Other user has hung up
     else if (data.type === 'hangup') {
       setCallStatus(null);
       setPopup({ present: true, message: "Call ended", class: "call-hangup" });
@@ -310,7 +306,11 @@ function App() {
       if (event.candidate) {
         console.log('createOffer > pc.onicecandidate');
         // console.log('createOffer > pc.onicecandidate:', event.candidate);
-        sendSignalingMessage({ type: 'candidate', candidate: event.candidate, receiverPhone: receiverPhone });
+        sendSignalingMessage({
+          type: 'candidate',
+          candidate: event.candidate,
+          receiverPhone: receiverPhone
+        });
       }
     };
 
@@ -322,7 +322,12 @@ function App() {
       .then(() => console.log("Local description set"))
       .catch((error) => console.error("Failed to set local description:", error));
 
-    sendSignalingMessage({ type: 'offer', offer, callerPhone: userPhone, receiverPhone: receiverPhone });
+    sendSignalingMessage({
+      type: 'offer',
+      offer,
+      callerPhone: userPhone,
+      receiverPhone: receiverPhone
+    });
   };
 
 
@@ -332,12 +337,6 @@ function App() {
     setPeerConnection(pc);
 
     localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
-    // console.log('handleOffer, setLocalStream:', stream);
-    // setLocalStream(stream);
-    // if (localVideoRef.current) {
-    //   localVideoRef.current.srcObject = stream;
-    // }
 
     pc.ontrack = (event) => {
       console.log('handleOffer, pc.ontrack setRemoteStream, event: ', event);
@@ -350,7 +349,11 @@ function App() {
       if (event.candidate) {
         console.log('handleOffer > pc.onicecandidate');
         // console.log('handleOffer > pc.onicecandidate:', event.candidate);
-        sendSignalingMessage({ type: 'candidate', candidate: event.candidate, receiverPhone: callerPhone });
+        sendSignalingMessage({
+          type: 'candidate',
+          candidate: event.candidate,
+          receiverPhone: callerPhone
+        });
       }
     };
 
@@ -364,7 +367,12 @@ function App() {
       .then(() => console.log("Local description set"))
       .catch((error) => console.error("Failed to set local description:", error));
 
-    sendSignalingMessage({ type: 'answer', answer, callerPhone, receiverPhone: userPhone });
+    sendSignalingMessage({
+      type: 'answer',
+      answer,
+      callerPhone,
+      receiverPhone: userPhone
+    });
 
     // Process ICE candidates received before the remote description was set
     // processIceCandidateQueue();
@@ -395,7 +403,7 @@ function App() {
     const receiverPhone = parseInt(e.target.receiverPhone.value, 10);
     if (receiverPhone === userPhone) {
       setCallStatus(null);
-      setPopup({ present: true, message: 'You cannot call yourself', class: "error" });
+      setPopup({ present: true, message: "Can't call yourself", class: "error" });
       return;
     }
 
@@ -406,84 +414,42 @@ function App() {
         setCallStatus('outgoing');
         setRemotePhone(receiverPhone);
         setLocalStream(stream);
-
-        // await createOffer(receiverPhone); // removed stream
       } else {
         console.error("Failed to start local stream.");
       }
 
-      sendSignalingMessage({ type: 'callRequest', callerPhone: userPhone, receiverPhone: receiverPhone });
+      sendSignalingMessage({
+        type: 'callRequest',
+        callerPhone: userPhone,
+        receiverPhone: receiverPhone
+      });
+
     } catch (error) {
       console.error("Error in makeCall:", error);
     }
   };
-
-  const hangUpCall = () => {
-    sendSignalingMessage({ type: 'hangup', callerPhone: userPhone, remotePhone });
-
-    setCallStatus(null);
-  }
 
 
   return (
     <>
       {!callStatus
         ?
-        <div id='page'>
-
-          <div className='flex-centered'>
-            <div style={{ height: '3em', padding: '1.5em' }}>
-              <img src={globeIcon} alt="call icon" />
-            </div>
-            <h1>WebRTC Video Call</h1>
-            <div style={{ height: '3em', padding: '1.5em' }}>
-              <img src={videoCamIcon} alt="call icon" />
-            </div>
-          </div>
-          <p>{nodeenv} mode</p>
-
-          <form onSubmit={makeCall} className='flex-centered'>
-            <div className='input-container flex-centered'>
-
-              <input type="number" name="receiverPhone" placeholder="Enter number to call" className='call-input' />
-
-              <button type="submit" className='icon-button call-button flex-centered' style={{ gap: '12px' }} title='Make call'>
-                <img src={videoCamIcon} alt="video call icon" style={{ height: '24px' }} />
-              </button>
-
-            </div>
-          </form>
-
-          <div className='flex-centered' style={{ padding: '2rem', gap: '12px' }}>
-
-            <p>Or share this number to be called: <span id='spanUserPhone' className='user-phone'>{userPhone}</span></p>
-
-            <button id='copyButton' type="button" className='icon-button flex-centered' style={{ padding: '.25rem' }} onClick={copyNumber}>
-              <img src={copyIcon} alt="copy icon" style={{ height: '1.2em' }} title='Copy number' />
-            </button>
-
-          </div>
-
-          {popup.present &&
-            <div className={`flex-centered popup ${popup.class}`}>
-              <p>{popup.message}</p>
-            </div>
-          }
-
-        </div>
+        <Home
+          makeCall={makeCall}
+          userPhone={userPhone}
+          popup={popup}
+          setPopup={setPopup}
+        />
         :
-        <>
-          <div className='video-container flex-centered'>
-            <video ref={localVideoRef} autoPlay playsInline className='localVid' />
-            {!remoteStream
-              ? <p className='remoteVid'>Calling number: {remotePhone}</p>
-              : <video ref={remoteVideoRef} autoPlay playsInline className='remoteVid' />
-            }
-            <button onClick={hangUpCall} className='hangup-button' title='Hang up'>
-              <img src={callEndIcon} alt="hang up icon" style={{ height: '48px' }} />
-            </button>
-          </div>
-        </>
+        <Call
+          localVideoRef={localVideoRef}
+          remoteVideoRef={remoteVideoRef}
+          remoteStream={remoteStream}
+          userPhone={userPhone}
+          remotePhone={remotePhone}
+          setCallStatus={setCallStatus}
+          sendSignalingMessage={sendSignalingMessage}
+        />
       }
     </>
   )
