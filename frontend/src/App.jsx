@@ -253,7 +253,8 @@ function App() {
 
     }
     else if (data.type === 'error') {
-      showErrorPopup(data.message);
+      setCallStatus(null);
+      setPopup({ present: true, message: data.message, class: "error" });
 
     }
     else {
