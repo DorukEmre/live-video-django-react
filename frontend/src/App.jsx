@@ -318,6 +318,15 @@ function App() {
       }
     };
 
+    // Monitor ICE connection state
+    pc.oniceconnectionstatechange = () => {
+      console.log('ICE connection state changed:', pc.iceConnectionState);
+      if (pc.iceConnectionState === 'failed') {
+        console.error('ICE connection failed. Check your TURN server or network conditions.');
+        showErrorPopup('ICE connection failed.');
+      }
+    };
+
     // Initiate the creation of an SDP offer: includes information about any MediaStreamTrack objects already attached to the WebRTC session, codec, and options supported by the browser, and any candidates already gathered by the ICE agent,
     const offer = await pc.createOffer();
 
@@ -354,6 +363,15 @@ function App() {
           candidate: event.candidate,
           receiverPhone: callerPhone
         });
+      }
+    };
+
+    // Monitor ICE connection state
+    pc.oniceconnectionstatechange = () => {
+      console.log('ICE connection state changed:', pc.iceConnectionState);
+      if (pc.iceConnectionState === 'failed') {
+        console.error('ICE connection failed. Check your TURN server or network conditions.');
+        showErrorPopup('ICE connection failed.');
       }
     };
 
