@@ -150,6 +150,14 @@ class SignalingConsumer(AsyncWebsocketConsumer):
                     "message": data
                 })
 
+        elif data['type'] == 'disconnection':
+            target_channel = phone_to_session.get(data['remotePhone'])
+            if target_channel:
+                await self.channel_layer.send(target_channel, {
+                    "type": "disconnection.message",
+                    "message": data
+                })
+
     async def send_updated_user_list(self):
         user_list = list(phone_to_session.keys())
         logger.debug(f'register > users: {user_list}')
@@ -181,6 +189,9 @@ class SignalingConsumer(AsyncWebsocketConsumer):
 
 
     async def hangup_message(self, event):
+        await self.send(text_data=json.dumps(event["message"]))
+        
+    async def disconnection_message(self, event):
         await self.send(text_data=json.dumps(event["message"]))
 
 

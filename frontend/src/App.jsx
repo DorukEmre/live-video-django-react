@@ -151,7 +151,15 @@ function App() {
   }, [callStatus]);
 
   const showErrorPopup = (message) => {
-    setCallStatus(null);
+    if (callStatus) {
+      sendSignalingMessage({
+        type: 'disconnection',
+        callerPhone: userPhone,
+        remotePhone,
+        message
+      });
+      setCallStatus(null);
+    }
     setPopup({ present: true, message: `${message}, reload and try again`, class: "error" });
   }
 
@@ -252,7 +260,7 @@ function App() {
       setPopup({ present: true, message: "Call ended", class: "call-hangup" });
 
     }
-    else if (data.type === 'error') {
+    else if (data.type === 'error' || data.type === 'disconnection') {
       setCallStatus(null);
       setPopup({ present: true, message: data.message, class: "error" });
 
@@ -322,7 +330,7 @@ function App() {
     pc.oniceconnectionstatechange = () => {
       console.log('ICE connection state changed:', pc.iceConnectionState);
       if (pc.iceConnectionState === 'failed') {
-        console.error('ICE connection failed. Check your TURN server or network conditions.');
+        console.error('ICE connection failed. pc:', pc);
         showErrorPopup('ICE connection failed.');
       }
     };
@@ -370,7 +378,7 @@ function App() {
     pc.oniceconnectionstatechange = () => {
       console.log('ICE connection state changed:', pc.iceConnectionState);
       if (pc.iceConnectionState === 'failed') {
-        console.error('ICE connection failed. Check your TURN server or network conditions.');
+        console.error('ICE connection failed. pc:', pc);
         showErrorPopup('ICE connection failed.');
       }
     };
