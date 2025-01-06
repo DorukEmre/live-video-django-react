@@ -85,9 +85,13 @@ button {
   outline: none;
 }
 
-.user-phone {
+.phone-number {
   color: var(--color-100);
   font-weight: 700;
+}
+
+.pointer {
+  cursor: pointer;
 }
 
 .video-container {

@@ -23,7 +23,7 @@ const Call = ({ localVideoRef, remoteVideoRef, remoteStream, userPhone, remotePh
         <video ref={localVideoRef} className='localVid' autoPlay playsInline muted="muted" />
 
         {!remoteStream
-          ? <p className='remoteVid'>Calling number: {remotePhone}</p>
+          ? <p className='remoteVid'>Please wait. Calling number: {remotePhone}</p>
           : <video ref={remoteVideoRef} className='remoteVid' autoPlay playsInline />
         }
 

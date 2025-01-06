@@ -11,6 +11,7 @@ import { peerConnectionConfig } from './js/webrtcUtils';
 function App() {
   const [userPhone, setUserPhone] = useState(0);
   const [remotePhone, setRemotePhone] = useState(0);
+  const [connectedUsers, setConnectedUsers] = useState([]);
   const [signalingSocket, setSignalingSocket] = useState(null);
   const [callStatus, setCallStatus] = useState(null);
   const [popup, setPopup] = useState({ present: false, message: "", class: "" });
@@ -62,6 +63,7 @@ function App() {
 
         ws.onerror = (error) => {
           console.error('WebSocket error:', error);
+          showErrorPopup(error.message);
         };
 
         ws.onclose = () => {
@@ -72,6 +74,7 @@ function App() {
 
       } catch (error) {
         console.error('Error initialising WebSocket:', error);
+        showErrorPopup(error.message);
       }
     }
 
@@ -147,6 +150,10 @@ function App() {
     }
   }, [callStatus]);
 
+  const showErrorPopup = (message) => {
+    setCallStatus(null);
+    setPopup({ present: true, message: `${message}, reload and try again`, class: "error" });
+  }
 
   const sendSignalingMessage = (message) => {
     if (signalingSocket && signalingSocket.readyState === WebSocket.OPEN) {
@@ -155,6 +162,7 @@ function App() {
         console.log('sendSignalingMessage > Signaling message sent via WebSocket:', message);
     } else {
       console.error('WebSocket is not connected.');
+      showErrorPopup('WebSocket is not connected');
     }
   };
 
@@ -162,8 +170,12 @@ function App() {
     if (data.type !== 'candidate')
       console.log('handleIncomingSignalingData > data', data, 'userPhone', userPhone);
 
+    // List of connected users
+    if (data.type === 'user_list') {
+      setConnectedUsers(data.user_list);
+    }
     // Incoming call request. Accept or Decline
-    if (data.type === 'callRequest' && data.receiverPhone === userPhone) {
+    else if (data.type === 'callRequest' && data.receiverPhone === userPhone) {
       const confirmed = confirm(`Incoming call from ${data.callerPhone}. Accept?`);
       if (confirmed) {
         await acceptCall(data.callerPhone, data.receiverPhone);
@@ -186,9 +198,11 @@ function App() {
           await createOffer(data.receiverPhone);
         } else {
           console.error("No local stream.");
+          showErrorPopup("No local stream");
         }
       } catch (error) {
         console.error("Error in createOffer:", error);
+        showErrorPopup(error.message);
       }
     }
     // Offer received from caller. Receiver create and send answer
@@ -198,12 +212,14 @@ function App() {
         if (localStream) {
           await handleOffer(data.offer, data.callerPhone);
           // Process queued candidates after setting the remote description
-          processIceCandidateQueue();
+          // processIceCandidateQueue();
         } else {
           console.error("No local stream.");
+          showErrorPopup("No local stream");
         }
       } catch (error) {
         console.error("Error in handleOffer:", error);
+        showErrorPopup(error.message);
       }
 
     }
@@ -227,7 +243,7 @@ function App() {
     // Receiver declined the call
     else if (data.type === 'decline' && data.callerPhone === userPhone) {
       setCallStatus(null);
-      setPopup({ present: true, message: "Call was declined", class: "call-declined" });
+      setPopup({ present: true, message: "Call declined", class: "call-declined" });
 
     }
     // Other user has hung up
@@ -237,8 +253,7 @@ function App() {
 
     }
     else if (data.type === 'error') {
-      setCallStatus(null);
-      setPopup({ present: true, message: data.message, class: "error" });
+      showErrorPopup(data.message);
 
     }
     else {
@@ -254,6 +269,7 @@ function App() {
         console.log('Queued candidate processed successfully:', candidate);
       } catch (error) {
         console.error('Error processing queued candidate:', error);
+        showErrorPopup(error.message);
       }
     }
   };
@@ -269,6 +285,7 @@ function App() {
 
     } catch (error) {
       console.error('Error accessing local stream:', error);
+      showErrorPopup(error.message);
     }
   };
 
@@ -369,6 +386,7 @@ function App() {
       }
     } else {
       console.error('Remote description not set or peer connection is closed');
+      showErrorPopup('Remote description not set or peer connection is closed');
     }
   };
 
@@ -388,7 +406,8 @@ function App() {
       });
 
     } catch (error) {
-      console.error("Error in makeCall:", error);
+      console.error("Error in acceptCall:", error);
+      showErrorPopup(error.message);
     }
   }
 
@@ -419,6 +438,7 @@ function App() {
 
     } catch (error) {
       console.error("Error in makeCall:", error);
+      showErrorPopup(error.message);
     }
   };
 
@@ -432,6 +452,7 @@ function App() {
           userPhone={userPhone}
           popup={popup}
           setPopup={setPopup}
+          connectedUsers={connectedUsers}
         />
         :
         <Call

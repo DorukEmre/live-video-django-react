@@ -18,6 +18,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         logger.debug(f'SignalingConsumer > disconnect')
         await self.unregister_phone()
+        await self.send_updated_user_list()
            
     async def unregister_phone(self):
         phone = None
@@ -46,6 +47,10 @@ class SignalingConsumer(AsyncWebsocketConsumer):
             await self.unregister_phone()
             phone_to_session[data['user_phone']] = self.channel_name
             logger.debug(f'register > phone_to_session: {pformat(phone_to_session)}')
+
+            # send user list to all users
+            await self.send_updated_user_list()
+
 
         # when user calls, check target number exists and send message to target user                
         elif data['type'] == 'callRequest':
@@ -145,6 +150,15 @@ class SignalingConsumer(AsyncWebsocketConsumer):
                     "message": data
                 })
 
+    async def send_updated_user_list(self):
+        user_list = list(phone_to_session.keys())
+        logger.debug(f'register > users: {user_list}')
+        
+        for session in phone_to_session.values():
+            await self.channel_layer.send(session, {
+                "type": "user_list.update",
+                "user_list": user_list
+            })
 
     async def callRequest_message(self, event):
         await self.send(text_data=json.dumps(event["message"]))
@@ -168,3 +182,8 @@ class SignalingConsumer(AsyncWebsocketConsumer):
 
     async def hangup_message(self, event):
         await self.send(text_data=json.dumps(event["message"]))
+
+
+    async def user_list_update(self, event):
+        await self.send(text_data=json.dumps({'type': 'user_list', 'user_list': event['user_list']}))
+
