@@ -20,11 +20,11 @@ const Call = ({ localVideoRef, remoteVideoRef, remoteStream, userPhone, remotePh
     <>
       <div className='video-container flex-centered'>
 
-        <video ref={localVideoRef} autoPlay playsInline className='localVid' />
+        <video ref={localVideoRef} className='localVid' autoPlay playsInline muted="muted" />
 
         {!remoteStream
           ? <p className='remoteVid'>Calling number: {remotePhone}</p>
-          : <video ref={remoteVideoRef} autoPlay playsInline className='remoteVid' />
+          : <video ref={remoteVideoRef} className='remoteVid' autoPlay playsInline />
         }
 
         <button onClick={hangUpCall} className='hangup-button' title='Hang up'>
