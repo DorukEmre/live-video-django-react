@@ -15,8 +15,6 @@ function App() {
   const [callStatus, setCallStatus] = useState(null);
   const [popup, setPopup] = useState({ present: false, message: "", class: "" });
 
-  const iceCandidateQueue = [];
-
   // webrtc
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
@@ -24,7 +22,11 @@ function App() {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
 
-  const baseURL = (process.env.NODE_ENV === "production") ? process.env.REACT_APP_API_BASE_URL : process.env.REACT_APP_API_BASE_URL_DEV;
+  const iceCandidateQueue = [];
+
+  const baseURL = (process.env.NODE_ENV === "production")
+    ? process.env.REACT_APP_API_BASE_URL
+    : process.env.REACT_APP_API_BASE_URL_DEV;
   const wsURL = baseURL.replace('http', 'ws');
 
   useEffect(() => {
@@ -89,12 +91,12 @@ function App() {
   useEffect(() => {
     // Set up the onmessage event handler when signalingSocket is available
     if (signalingSocket) {
-      signalingSocket.onmessage = (event) => {
+      signalingSocket.onmessage = async (event) => {
         const eventData = JSON.parse(event.data);
-        handleIncomingSignalingData(eventData);
+        await handleIncomingSignalingData(eventData);
       };
     }
-  }, [signalingSocket, localStream, remoteStream, peerConnection]);
+  }, [signalingSocket, localStream, peerConnection]);
 
   useEffect(() => {
     // Process each candidate in the queue when the peerConnection is established
@@ -160,30 +162,11 @@ function App() {
     if (data.type !== 'candidate')
       console.log('handleIncomingSignalingData > data', data, 'userPhone', userPhone);
 
-    // incoming call request
+    // Incoming call request. Accept or Decline
     if (data.type === 'callRequest' && data.receiverPhone === userPhone) {
       const confirmed = confirm(`Incoming call from ${data.callerPhone}. Accept?`);
       if (confirmed) {
-        try {
-          const stream = await startMediaStream();
-          if (stream) {
-            setCallStatus('incoming');
-            setRemotePhone(data.callerPhone);
-            setLocalStream(stream);
-
-          } else {
-            console.error("Failed to start local stream.");
-          }
-
-          sendSignalingMessage({
-            type: 'accept',
-            callerPhone: data.callerPhone,
-            receiverPhone: data.receiverPhone,
-          });
-
-        } catch (error) {
-          console.error("Error in makeCall:", error);
-        }
+        await acceptCall(data.callerPhone, data.receiverPhone);
 
       } else {
         sendSignalingMessage({
@@ -215,7 +198,7 @@ function App() {
         if (localStream) {
           await handleOffer(data.offer, data.callerPhone);
           // Process queued candidates after setting the remote description
-          // processIceCandidateQueue();
+          processIceCandidateQueue();
         } else {
           console.error("No local stream.");
         }
@@ -278,9 +261,12 @@ function App() {
   const startMediaStream = async () => {
     console.log('startMediaStream');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true, audio: true
+      });
 
       return stream;
+
     } catch (error) {
       console.error('Error accessing local stream:', error);
     }
@@ -297,8 +283,8 @@ function App() {
     // Triggered when a new media track is received from the remote peer
     pc.ontrack = (event) => {
       console.log('createOffer, setRemoteStream');
-      const [remoteStream] = event.streams;
-      setRemoteStream(remoteStream);
+      const [receivedStream] = event.streams;
+      setRemoteStream(receivedStream);
     };
 
     // Triggered when the ICE agent finds a new candidate
@@ -319,8 +305,6 @@ function App() {
 
     // Set the offer as the description of the local end of the connection
     await pc.setLocalDescription(offer)
-      .then(() => console.log("Local description set"))
-      .catch((error) => console.error("Failed to set local description:", error));
 
     sendSignalingMessage({
       type: 'offer',
@@ -339,16 +323,14 @@ function App() {
     localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
     pc.ontrack = (event) => {
-      console.log('handleOffer, pc.ontrack setRemoteStream, event: ', event);
-      console.log('handleOffer, pc.ontrack setRemoteStream, event.streams: ', event.streams);
-      const [remoteStream] = event.streams;
-      setRemoteStream(remoteStream);
+      console.log('handleOffer, pc.ontrack setRemoteStream');
+      const [receivedStream] = event.streams;
+      setRemoteStream(receivedStream);
     };
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         console.log('handleOffer > pc.onicecandidate');
-        // console.log('handleOffer > pc.onicecandidate:', event.candidate);
         sendSignalingMessage({
           type: 'candidate',
           candidate: event.candidate,
@@ -357,15 +339,10 @@ function App() {
       }
     };
 
-    console.log('setRemoteDescription, offer:', offer)
     await pc.setRemoteDescription(new RTCSessionDescription(offer))
-      .then(() => console.log("Remote description set successfully"))
-      .catch((error) => console.error("Failed to set remote description:", error));
+
     const answer = await pc.createAnswer();
-    console.log('setLocalDescription, answer:', answer)
     await pc.setLocalDescription(answer)
-      .then(() => console.log("Local description set"))
-      .catch((error) => console.error("Failed to set local description:", error));
 
     sendSignalingMessage({
       type: 'answer',
@@ -374,8 +351,6 @@ function App() {
       receiverPhone: userPhone
     });
 
-    // Process ICE candidates received before the remote description was set
-    // processIceCandidateQueue();
   };
 
   const handleAnswer = async (answer) => {
@@ -397,9 +372,30 @@ function App() {
     }
   };
 
+  // Accept a call request and start local stream
+  const acceptCall = async (callerPhone, receiverPhone) => {
+    try {
+      const stream = await startMediaStream();
 
+      setCallStatus('incoming');
+      setRemotePhone(callerPhone);
+      setLocalStream(stream);
+
+      sendSignalingMessage({
+        type: 'accept',
+        callerPhone,
+        receiverPhone,
+      });
+
+    } catch (error) {
+      console.error("Error in makeCall:", error);
+    }
+  }
+
+  // Send a call request and start local stream
   const makeCall = async (e) => {
     e.preventDefault();
+
     const receiverPhone = parseInt(e.target.receiverPhone.value, 10);
     if (receiverPhone === userPhone) {
       setCallStatus(null);
@@ -409,14 +405,11 @@ function App() {
 
     try {
       const stream = await startMediaStream();
-      if (stream) {
-        console.log('MediaStream started when making call, stream:', stream);
-        setCallStatus('outgoing');
-        setRemotePhone(receiverPhone);
-        setLocalStream(stream);
-      } else {
-        console.error("Failed to start local stream.");
-      }
+
+      console.log('MediaStream started when making call, stream:', stream);
+      setCallStatus('outgoing');
+      setRemotePhone(receiverPhone);
+      setLocalStream(stream);
 
       sendSignalingMessage({
         type: 'callRequest',

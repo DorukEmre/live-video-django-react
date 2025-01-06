@@ -6,7 +6,7 @@ import {
 import { copyNumber } from '../js/utils';
 
 const Home = ({ makeCall, userPhone, popup, setPopup }) => {
-  // Reset popup message after display
+  // Reset popup message after displaying
   useEffect(() => {
     if (popup.present) {
       setTimeout(() => {
