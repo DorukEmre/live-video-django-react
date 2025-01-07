@@ -8,7 +8,7 @@ const Call = ({ localVideoRef, remoteVideoRef, remoteStream, userPhone, remotePh
   const hangUpCall = () => {
     sendSignalingMessage({
       type: 'hangup',
-      callerPhone: userPhone,
+      hangerPhone: userPhone,
       remotePhone
     });
 

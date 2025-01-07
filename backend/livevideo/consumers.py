@@ -36,7 +36,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
             logger.debug(f"SignalingConsumer > receive data: type={data.get('type')}, receiverPhone={data.get('receiverPhone')}")
         elif data['type'] == 'answer':
             logger.debug(f"SignalingConsumer > receive data: type={data.get('type')}, callerPhone={data.get('callerPhone')}, receiverPhone={data.get('receiverPhone')}")
-        elif data['type'] == 'offer' or  data['type'] == 'callRequest':
+        elif data['type'] == 'offer' or  data['type'] == 'call_request':
             logger.debug(f"SignalingConsumer > receive data: type={data.get('type')}, callerPhone={data.get('callerPhone')}, receiverPhone={data.get('receiverPhone')}")
         else:
             logger.debug(f'SignalingConsumer > receive data: {pformat(data)}')
@@ -53,7 +53,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
 
 
         # when user calls, check target number exists and send message to target user                
-        elif data['type'] == 'callRequest':
+        elif data['type'] == 'call_request':
             # check if caller is still online
             if data['receiverPhone'] not in phone_to_session:
                 await self.send(text_data=json.dumps({
@@ -73,7 +73,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
             target_channel = phone_to_session.get(data['receiverPhone'])
             if target_channel:
                 await self.channel_layer.send(target_channel, {
-                    "type": "callRequest.message",
+                    "type": "call_request.message",
                     "message": data
                 })
 
@@ -168,7 +168,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
                 "user_list": user_list
             })
 
-    async def callRequest_message(self, event):
+    async def call_request_message(self, event):
         await self.send(text_data=json.dumps(event["message"]))
 
     async def accept_message(self, event):
