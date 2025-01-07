@@ -1,9 +1,38 @@
+import { useState, useEffect, useRef } from 'react';
 import {
   callEndIcon
 } from '../js/images';
 
 
-const Call = ({ localVideoRef, remoteVideoRef, remoteStream, userPhone, remotePhone, setCallStatus, sendSignalingMessage }) => {
+const Call = ({ localStream, remoteStream, userPhone, remotePhone, callStatus, setCallStatus, sendSignalingMessage }) => {
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+
+  // Set local and remote streams when available
+  useEffect(() => {
+    if (localStream) {
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = localStream;
+      }
+    }
+  }, [localStream]);
+
+  useEffect(() => {
+    if (remoteStream) {
+      if (remoteVideoRef.current)
+        remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream]);
+
+  // Close streams and peer connection when call ends
+  useEffect(() => {
+    if (!callStatus) {
+      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+
+    }
+  }, [callStatus]);
+
 
   const hangUpCall = () => {
     sendSignalingMessage({

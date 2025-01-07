@@ -21,8 +21,6 @@ function App() {
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
   const [peerConnection, setPeerConnection] = useState(null);
-  const localVideoRef = useRef(null);
-  const remoteVideoRef = useRef(null);
 
   const iceCandidateQueue = [];
 
@@ -110,21 +108,6 @@ function App() {
     }
   }, [peerConnection?.remoteDescription]);
 
-  // Set local and remote streams when available
-  useEffect(() => {
-    if (localStream) {
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = localStream;
-      }
-    }
-  }, [localStream]);
-
-  useEffect(() => {
-    if (remoteStream) {
-      if (remoteVideoRef.current)
-        remoteVideoRef.current.srcObject = remoteStream;
-    }
-  }, [remoteStream]);
 
   // Close streams and peer connection when call ends
   useEffect(() => {
@@ -134,13 +117,13 @@ function App() {
         localStream.getTracks().forEach((track) => track.stop());
         setLocalStream(null);
       }
-      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      // if (localVideoRef.current) localVideoRef.current.srcObject = null;
 
       if (remoteStream) {
         remoteStream.getTracks().forEach((track) => track.stop());
         setRemoteStream(null);
       }
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      // if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
 
       if (peerConnection) {
         peerConnection.close();
@@ -504,11 +487,11 @@ function App() {
         />
         :
         <Call
-          localVideoRef={localVideoRef}
-          remoteVideoRef={remoteVideoRef}
+          localStream={localStream}
           remoteStream={remoteStream}
           userPhone={userPhone}
           remotePhone={remotePhone}
+          callStatus={callStatus}
           setCallStatus={setCallStatus}
           sendSignalingMessage={sendSignalingMessage}
         />
