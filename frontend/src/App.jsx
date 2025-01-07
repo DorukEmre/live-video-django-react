@@ -330,6 +330,7 @@ function App() {
       }
       else if (pc.iceConnectionState === 'disconnected') {
         setCallStatus(null);
+        setPopup({ present: true, message: 'User disconnected', class: "error" });
       }
     };
 
@@ -384,6 +385,7 @@ function App() {
       }
       else if (pc.iceConnectionState === 'disconnected') {
         setCallStatus(null);
+        setPopup({ present: true, message: 'User disconnected', class: "error" });
       }
     };
 
