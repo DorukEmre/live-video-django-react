@@ -287,12 +287,12 @@ function App() {
     }
   };
 
-  const startMediaStream = async (test) => {
+  const startMediaStream = async () => {
     console.log('startMediaStream');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: (test === 1),
-        audio: (test === 2)
+        video: true,
+        audio: true
       });
 
       return stream;
@@ -439,7 +439,7 @@ function App() {
   // Accept a call request and start local stream
   const acceptCall = async (callerPhone, receiverPhone) => {
     try {
-      const stream = await startMediaStream(2);
+      const stream = await startMediaStream();
 
       setCallStatus('incoming');
       setRemotePhone(callerPhone);
@@ -469,7 +469,7 @@ function App() {
     }
 
     try {
-      const stream = await startMediaStream(1);
+      const stream = await startMediaStream();
 
       console.log('MediaStream started when making call, stream:', stream);
       setCallStatus('outgoing');
