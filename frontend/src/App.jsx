@@ -14,6 +14,7 @@ function App() {
   const [connectedUsers, setConnectedUsers] = useState([]);
   const [signalingSocket, setSignalingSocket] = useState(null);
   const [callStatus, setCallStatus] = useState(null);
+  const [isConnected, setIsConnected] = useState(false);
   const [popup, setPopup] = useState({ present: false, message: "", class: "" });
 
   // webrtc
@@ -104,10 +105,10 @@ function App() {
   useEffect(() => {
     // Process each candidate in the queue when the peerConnection is established
     console.log('peerConnection:', peerConnection);
-    if (peerConnection) {
+    if (peerConnection && peerConnection.remoteDescription) {
       processIceCandidateQueue();
     }
-  }, [peerConnection]);
+  }, [peerConnection?.remoteDescription]);
 
   // Set local and remote streams when available
   useEffect(() => {
@@ -146,9 +147,14 @@ function App() {
         setPeerConnection(null);
       }
 
+      setIsConnected(false);
+
       setRemotePhone(0);
     }
   }, [callStatus]);
+
+
+
 
   const showErrorPopup = (message) => {
     if (callStatus) {
@@ -183,7 +189,7 @@ function App() {
       setConnectedUsers(data.user_list);
     }
     // Incoming call request. Accept or Decline
-    else if (data.type === 'callRequest' && data.receiverPhone === userPhone) {
+    else if (data.type === 'call_request' && data.receiverPhone === userPhone) {
       const confirmed = confirm(`Incoming call from ${data.callerPhone}. Accept?`);
       if (confirmed) {
         await acceptCall(data.callerPhone, data.receiverPhone);
@@ -238,7 +244,9 @@ function App() {
         iceCandidateQueue.push(data.candidate);
         console.log('Candidate queued');
         // console.log('Candidate queued:', data.candidate);
-      } else {
+      }
+      // handleCandidate if peerConnection present but not established
+      else if (!isConnected) {
         await handleCandidate(data.candidate);
       }
 
@@ -283,11 +291,12 @@ function App() {
     }
   };
 
-  const startMediaStream = async () => {
+  const startMediaStream = async (test) => {
     console.log('startMediaStream');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: true, audio: true
+        video: (test === 1),
+        audio: (test === 2)
       });
 
       return stream;
@@ -315,7 +324,7 @@ function App() {
 
     // Triggered when the ICE agent finds a new candidate
     pc.onicecandidate = (event) => {
-      if (event.candidate) {
+      if (event.candidate && !isConnected) {
         console.log('createOffer > pc.onicecandidate');
         // console.log('createOffer > pc.onicecandidate:', event.candidate);
         sendSignalingMessage({
@@ -329,9 +338,15 @@ function App() {
     // Monitor ICE connection state
     pc.oniceconnectionstatechange = () => {
       console.log('ICE connection state changed:', pc.iceConnectionState);
-      if (pc.iceConnectionState === 'failed') {
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        console.log('ICE connection established successfully');
+        setIsConnected(true);
+      } else if (pc.iceConnectionState === 'failed') {
         console.error('ICE connection failed. pc:', pc);
         showErrorPopup('ICE connection failed.');
+      }
+      else if (pc.iceConnectionState === 'disconnected') {
+        setCallStatus(null);
       }
     };
 
@@ -377,9 +392,15 @@ function App() {
     // Monitor ICE connection state
     pc.oniceconnectionstatechange = () => {
       console.log('ICE connection state changed:', pc.iceConnectionState);
-      if (pc.iceConnectionState === 'failed') {
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        console.log('ICE connection established successfully');
+        setIsConnected(true);
+      } else if (pc.iceConnectionState === 'failed') {
         console.error('ICE connection failed. pc:', pc);
         showErrorPopup('ICE connection failed.');
+      }
+      else if (pc.iceConnectionState === 'disconnected') {
+        setCallStatus(null);
       }
     };
 
@@ -406,7 +427,7 @@ function App() {
   const handleCandidate = async (candidate) => {
     if (peerConnection && peerConnection.remoteDescription) {
       try {
-        await peerConnection.addIceCandidate(candidate);
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
         console.log('ICE candidate added successfully');
       } catch (error) {
         console.error('Error adding ICE candidate:', error);
@@ -420,7 +441,7 @@ function App() {
   // Accept a call request and start local stream
   const acceptCall = async (callerPhone, receiverPhone) => {
     try {
-      const stream = await startMediaStream();
+      const stream = await startMediaStream(2);
 
       setCallStatus('incoming');
       setRemotePhone(callerPhone);
@@ -450,7 +471,7 @@ function App() {
     }
 
     try {
-      const stream = await startMediaStream();
+      const stream = await startMediaStream(1);
 
       console.log('MediaStream started when making call, stream:', stream);
       setCallStatus('outgoing');
@@ -458,7 +479,7 @@ function App() {
       setLocalStream(stream);
 
       sendSignalingMessage({
-        type: 'callRequest',
+        type: 'call_request',
         callerPhone: userPhone,
         receiverPhone: receiverPhone
       });
