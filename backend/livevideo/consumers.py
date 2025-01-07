@@ -97,6 +97,14 @@ class SignalingConsumer(AsyncWebsocketConsumer):
                     "message": data
                 })
 
+        elif data['type'] == 'occupied':
+            target_channel = phone_to_session.get(data['callerPhone'])
+            if target_channel:
+                await self.channel_layer.send(target_channel, {
+                    "type": "occupied.message",
+                    "message": data
+                })
+
         elif data['type'] == 'offer':
             # check if caller is still online
             if data['receiverPhone'] not in phone_to_session:
@@ -175,6 +183,9 @@ class SignalingConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps(event["message"]))
 
     async def decline_message(self, event):
+        await self.send(text_data=json.dumps(event["message"]))
+
+    async def occupied_message(self, event):
         await self.send(text_data=json.dumps(event["message"]))
         
 

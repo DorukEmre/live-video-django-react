@@ -172,7 +172,7 @@ function App() {
       setConnectedUsers(data.user_list);
     }
     // Incoming call request. Accept or Decline
-    else if (data.type === 'call_request' && data.receiverPhone === userPhone) {
+    else if (data.type === 'call_request' && data.receiverPhone === userPhone && !callStatus) {
       const confirmed = confirm(`Incoming call from ${data.callerPhone}. Accept?`);
       if (confirmed) {
         await acceptCall(data.callerPhone, data.receiverPhone);
@@ -185,6 +185,13 @@ function App() {
         });
       }
 
+    }
+    else if (data.type === 'call_request' && data.receiverPhone === userPhone && callStatus) {
+      sendSignalingMessage({
+        type: 'occupied',
+        callerPhone: data.callerPhone,
+        receiverPhone: data.receiverPhone,
+      });
     }
     // Receiver accepted call request. Caller create and send offer
     else if (data.type === 'accept' && data.callerPhone === userPhone) {
@@ -243,6 +250,12 @@ function App() {
     else if (data.type === 'decline' && data.callerPhone === userPhone) {
       setCallStatus(null);
       setPopup({ present: true, message: "Call declined", class: "call-declined" });
+
+    }
+    // Other user has hung up
+    else if (data.type === 'occupied' && data.callerPhone === userPhone) {
+      setCallStatus(null);
+      setPopup({ present: true, message: "Already in a call", class: "call-declined" });
 
     }
     // Other user has hung up
