@@ -339,6 +339,7 @@ function App() {
         setIsConnected(true);
       } else if (pc.iceConnectionState === 'failed') {
         console.error('ICE connection failed. pc:', pc);
+        setCallStatus(null);
         showErrorPopup('ICE connection failed.');
       }
       else if (pc.iceConnectionState === 'disconnected') {
