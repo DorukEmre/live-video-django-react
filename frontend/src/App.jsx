@@ -322,12 +322,15 @@ function App() {
     pc.onicecandidate = (event) => {
       if (event.candidate && !isConnected) {
         // console.log('createOffer > pc.onicecandidate');
-        // console.log('createOffer > pc.onicecandidate:', event.candidate);
+        console.log('createOffer > pc.onicecandidate:', event.candidate);
         sendSignalingMessage({
           type: 'candidate',
           candidate: event.candidate,
           receiverPhone: receiverPhone
         });
+
+      } else {
+        console.log("ICE Candidate gathering finished.");
       }
     };
 
@@ -356,23 +359,16 @@ function App() {
         console.error('ICE connection failed. pc:', pc);
         pc.getStats(null).then(stats => {
           stats.forEach(report => {
-            if (report.type === 'candidate-pair' && report.state === 'failed') {
-              console.log('Failed candidate pair:');
-              console.log('Local candidate ID:', report.localCandidateId);
-              console.log('Remote candidate ID:', report.remoteCandidateId);
-              stats.forEach(candidate => {
-                if (candidate.id === report.localCandidateId) {
-                  console.log('Local candidate details:', candidate);
-                }
-                if (candidate.id === report.remoteCandidateId) {
-                  console.log('Remote candidate details:', candidate);
-                }
-              });
+            if (report.type === "candidate-pair") {
+              console.log("ICE Candidate Pair:", report);
+
+              if (report.state === "failed") {
+                console.warn("🚨 ICE Candidate Pair Failed:", report);
+              }
             }
           });
-        }).catch(error => {
-          console.error('Error getting stats:', error);
         });
+
         setCallStatus(null);
         showErrorPopup('ICE connection failed.');
       }
@@ -413,11 +409,15 @@ function App() {
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         // console.log('handleOffer > pc.onicecandidate');
+        console.log('createOffer > pc.onicecandidate:', event.candidate);
         sendSignalingMessage({
           type: 'candidate',
           candidate: event.candidate,
           receiverPhone: callerPhone
         });
+
+      } else {
+        console.log("ICE Candidate gathering finished.");
       }
     };
 
@@ -446,23 +446,16 @@ function App() {
         console.error('ICE connection failed. pc:', pc);
         pc.getStats(null).then(stats => {
           stats.forEach(report => {
-            if (report.type === 'candidate-pair' && report.state === 'failed') {
-              console.log('Failed candidate pair:');
-              console.log('Local candidate ID:', report.localCandidateId);
-              console.log('Remote candidate ID:', report.remoteCandidateId);
-              stats.forEach(candidate => {
-                if (candidate.id === report.localCandidateId) {
-                  console.log('Local candidate details:', candidate);
-                }
-                if (candidate.id === report.remoteCandidateId) {
-                  console.log('Remote candidate details:', candidate);
-                }
-              });
+            if (report.type === "candidate-pair") {
+              console.log("ICE Candidate Pair:", report);
+
+              if (report.state === "failed") {
+                console.warn("🚨 ICE Candidate Pair Failed:", report);
+              }
             }
           });
-        }).catch(error => {
-          console.error('Error getting stats:', error);
         });
+
         showErrorPopup('ICE connection failed.');
       }
       else if (pc.iceConnectionState === 'disconnected') {
