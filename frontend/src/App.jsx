@@ -354,6 +354,25 @@ function App() {
         setIsConnected(true);
       } else if (pc.iceConnectionState === 'failed') {
         console.error('ICE connection failed. pc:', pc);
+        pc.getStats(null).then(stats => {
+          stats.forEach(report => {
+            if (report.type === 'candidate-pair' && report.state === 'failed') {
+              console.log('Failed candidate pair:');
+              console.log('Local candidate ID:', report.localCandidateId);
+              console.log('Remote candidate ID:', report.remoteCandidateId);
+              stats.forEach(candidate => {
+                if (candidate.id === report.localCandidateId) {
+                  console.log('Local candidate details:', candidate);
+                }
+                if (candidate.id === report.remoteCandidateId) {
+                  console.log('Remote candidate details:', candidate);
+                }
+              });
+            }
+          });
+        }).catch(error => {
+          console.error('Error getting stats:', error);
+        });
         setCallStatus(null);
         showErrorPopup('ICE connection failed.');
       }
@@ -425,6 +444,25 @@ function App() {
         setIsConnected(true);
       } else if (pc.iceConnectionState === 'failed') {
         console.error('ICE connection failed. pc:', pc);
+        pc.getStats(null).then(stats => {
+          stats.forEach(report => {
+            if (report.type === 'candidate-pair' && report.state === 'failed') {
+              console.log('Failed candidate pair:');
+              console.log('Local candidate ID:', report.localCandidateId);
+              console.log('Remote candidate ID:', report.remoteCandidateId);
+              stats.forEach(candidate => {
+                if (candidate.id === report.localCandidateId) {
+                  console.log('Local candidate details:', candidate);
+                }
+                if (candidate.id === report.remoteCandidateId) {
+                  console.log('Remote candidate details:', candidate);
+                }
+              });
+            }
+          });
+        }).catch(error => {
+          console.error('Error getting stats:', error);
+        });
         showErrorPopup('ICE connection failed.');
       }
       else if (pc.iceConnectionState === 'disconnected') {

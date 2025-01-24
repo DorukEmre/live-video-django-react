@@ -34,6 +34,8 @@ heroku addons:create heroku-postgresql:hobby-dev -a live-video
 # 7. Migrate the database:
 heroku run python manage.py migrate -a live-video -->
 
+If "unauthorized: authentication required", login from backend folder:
+./backend$ sudo heroku container:login
 
 To update manually:
 
