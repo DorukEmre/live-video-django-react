@@ -155,8 +155,8 @@ function App() {
   const sendSignalingMessage = (message) => {
     if (signalingSocket && signalingSocket.readyState === WebSocket.OPEN) {
       signalingSocket.send(JSON.stringify(message));
-      if (message.type !== 'candidate')
-        console.log('sendSignalingMessage > Signaling message sent via WebSocket:', message);
+      // if (message.type !== 'candidate')
+      //   console.log('sendSignalingMessage > Signaling message sent via WebSocket:', message);
     } else {
       console.error('WebSocket is not connected.');
       showErrorPopup('WebSocket is not connected');
@@ -321,7 +321,7 @@ function App() {
     // Triggered when the ICE agent finds a new candidate
     pc.onicecandidate = (event) => {
       if (event.candidate && !isConnected) {
-        console.log('createOffer > pc.onicecandidate');
+        // console.log('createOffer > pc.onicecandidate');
         // console.log('createOffer > pc.onicecandidate:', event.candidate);
         sendSignalingMessage({
           type: 'candidate',
@@ -336,6 +336,21 @@ function App() {
       console.log('ICE connection state changed:', pc.iceConnectionState);
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         console.log('ICE connection established successfully');
+        pc.getStats(null).then(stats => {
+          stats.forEach(report => {
+            if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.nominated === true) {
+              stats.forEach(candidate => {
+                if (candidate.id === report.localCandidateId) {
+                  console.log('Local candidate details:', candidate);
+                }
+                if (candidate.id === report.remoteCandidateId) {
+                  console.log('Remote candidate details:', candidate);
+                }
+              });
+            }
+          });
+        });
+
         setIsConnected(true);
       } else if (pc.iceConnectionState === 'failed') {
         console.error('ICE connection failed. pc:', pc);
@@ -378,7 +393,7 @@ function App() {
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log('handleOffer > pc.onicecandidate');
+        // console.log('handleOffer > pc.onicecandidate');
         sendSignalingMessage({
           type: 'candidate',
           candidate: event.candidate,
@@ -392,6 +407,21 @@ function App() {
       console.log('ICE connection state changed:', pc.iceConnectionState);
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         console.log('ICE connection established successfully');
+        pc.getStats(null).then(stats => {
+          stats.forEach(report => {
+            if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.nominated === true) {
+              stats.forEach(candidate => {
+                if (candidate.id === report.localCandidateId) {
+                  console.log('Local candidate details:', candidate);
+                }
+                if (candidate.id === report.remoteCandidateId) {
+                  console.log('Remote candidate details:', candidate);
+                }
+              });
+            }
+          });
+        });
+
         setIsConnected(true);
       } else if (pc.iceConnectionState === 'failed') {
         console.error('ICE connection failed. pc:', pc);
@@ -427,7 +457,7 @@ function App() {
     if (peerConnection && peerConnection.remoteDescription) {
       try {
         await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-        console.log('ICE candidate added successfully');
+        // console.log('ICE candidate added successfully');
       } catch (error) {
         console.error('Error adding ICE candidate:', error);
       }
