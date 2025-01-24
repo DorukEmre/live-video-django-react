@@ -47,7 +47,7 @@ const Call = ({ localStream, remoteStream, userPhone, remotePhone, callStatus, s
 
   return (
     <>
-      <div className='video-container flex-centered'>
+      <div className='video-container flex flex-centered'>
 
         <video ref={localVideoRef} className='localVid' autoPlay playsInline muted="muted" />
 
