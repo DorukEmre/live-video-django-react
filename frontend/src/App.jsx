@@ -356,21 +356,18 @@ function App() {
 
         setIsConnected(true);
       } else if (pc.iceConnectionState === 'failed') {
-        console.error('ICE connection failed. pc:', pc);
-        pc.getStats(null).then(stats => {
+        console.error('ICE connection failed. pc:', pc); pc.getStats(null).then(stats => {
           stats.forEach(report => {
+            console.log(report);
             if (report.type === "candidate-pair") {
               console.log("ICE Candidate Pair:", report);
-
-              if (report.state === "failed") {
-                console.warn("🚨 ICE Candidate Pair Failed:", report);
-              }
             }
           });
         });
+        pc.restartIce()
 
-        setCallStatus(null);
-        showErrorPopup('ICE connection failed.');
+        // setCallStatus(null);
+        // showErrorPopup('ICE connection failed.');
       }
       else if (pc.iceConnectionState === 'disconnected') {
         setCallStatus(null);
@@ -409,7 +406,7 @@ function App() {
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         // console.log('handleOffer > pc.onicecandidate');
-        console.log('createOffer > pc.onicecandidate:', event.candidate);
+        console.log('handleOffer > pc.onicecandidate:', event.candidate);
         sendSignalingMessage({
           type: 'candidate',
           candidate: event.candidate,
@@ -446,17 +443,15 @@ function App() {
         console.error('ICE connection failed. pc:', pc);
         pc.getStats(null).then(stats => {
           stats.forEach(report => {
+            console.log(report);
             if (report.type === "candidate-pair") {
               console.log("ICE Candidate Pair:", report);
-
-              if (report.state === "failed") {
-                console.warn("🚨 ICE Candidate Pair Failed:", report);
-              }
             }
           });
         });
+        pc.restartIce()
 
-        showErrorPopup('ICE connection failed.');
+        // showErrorPopup('ICE connection failed.');
       }
       else if (pc.iceConnectionState === 'disconnected') {
         setCallStatus(null);
