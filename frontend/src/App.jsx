@@ -102,7 +102,7 @@ function App() {
 
   useEffect(() => {
     // Process each candidate in the queue when the peerConnection is established
-    console.log('peerConnection:', peerConnection);
+    // console.log('peerConnection:', peerConnection);
     if (peerConnection && peerConnection.remoteDescription) {
       processIceCandidateQueue();
     }
@@ -322,7 +322,7 @@ function App() {
     pc.onicecandidate = (event) => {
       if (event.candidate && !isConnected) {
         // console.log('createOffer > pc.onicecandidate');
-        console.log('createOffer > pc.onicecandidate:', event.candidate);
+        // console.log('createOffer > pc.onicecandidate:', event.candidate);
         sendSignalingMessage({
           type: 'candidate',
           candidate: event.candidate,
@@ -340,23 +340,46 @@ function App() {
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         console.log('ICE connection established successfully');
         pc.getStats(null).then(stats => {
+          // data to send to the backend on successful connection
+          let logData = {
+            timestamp: new Date().toISOString(),
+            local: {},
+            remote: {}
+          };
+
           stats.forEach(report => {
             if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.nominated === true) {
+
               stats.forEach(candidate => {
                 if (candidate.id === report.localCandidateId) {
-                  console.log('Local candidate details:', candidate);
+                  // console.log('Local candidate details:', candidate);
+                  logData.local = {
+                    candidateType: candidate.candidateType,
+                    protocol: candidate.protocol,
+                  };
                 }
                 if (candidate.id === report.remoteCandidateId) {
-                  console.log('Remote candidate details:', candidate);
+                  // console.log('Remote candidate details:', candidate);
+                  logData.remote = {
+                    candidateType: candidate.candidateType,
+                    protocol: candidate.protocol,
+                  };
                 }
               });
             }
           });
+          // console.log("Successful Connection Log:", logData);
+          sendSignalingMessage({
+            type: 'log_successful_connection',
+            log_data: logData,
+          });
+
         });
 
         setIsConnected(true);
       } else if (pc.iceConnectionState === 'failed') {
-        console.error('ICE connection failed. pc:', pc); pc.getStats(null).then(stats => {
+        console.error('ICE connection failed. pc:', pc);
+        pc.getStats(null).then(stats => {
           stats.forEach(report => {
             console.log(report);
             if (report.type === "candidate-pair") {
@@ -364,10 +387,10 @@ function App() {
             }
           });
         });
-        pc.restartIce()
+        // pc.restartIce()
 
-        // setCallStatus(null);
-        // showErrorPopup('ICE connection failed.');
+        setCallStatus(null);
+        showErrorPopup('ICE connection failed.');
       }
       else if (pc.iceConnectionState === 'disconnected') {
         setCallStatus(null);
@@ -406,7 +429,7 @@ function App() {
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         // console.log('handleOffer > pc.onicecandidate');
-        console.log('handleOffer > pc.onicecandidate:', event.candidate);
+        // console.log('handleOffer > pc.onicecandidate:', event.candidate);
         sendSignalingMessage({
           type: 'candidate',
           candidate: event.candidate,
@@ -449,9 +472,9 @@ function App() {
             }
           });
         });
-        pc.restartIce()
+        // pc.restartIce()
 
-        // showErrorPopup('ICE connection failed.');
+        showErrorPopup('ICE connection failed.');
       }
       else if (pc.iceConnectionState === 'disconnected') {
         setCallStatus(null);

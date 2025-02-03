@@ -18,6 +18,7 @@
 
 # Migrate the database
 echo "--Making migrations..."
+python manage.py makemigrations livevideo
 python manage.py makemigrations
 
 echo "--Applying migrations..."

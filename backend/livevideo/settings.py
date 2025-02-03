@@ -95,6 +95,7 @@ if os.environ.get('MODE') == 'production':
     ]
 
 INSTALLED_APPS += [
+    'livevideo',
     'channels',
     'corsheaders',
     # 'django.contrib.admin',

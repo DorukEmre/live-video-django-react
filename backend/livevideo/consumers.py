@@ -6,6 +6,7 @@ logger = logging.getLogger(__name__)
 import prettyprinter
 from prettyprinter import pformat
 prettyprinter.set_default_config(depth=None, width=80, ribbon_width=80)
+from .models import ConnectionLog
 
 # map phone number to WebSocket connection for server to notify the target user
 phone_to_session = {}
@@ -165,6 +166,23 @@ class SignalingConsumer(AsyncWebsocketConsumer):
                     "type": "disconnection.message",
                     "message": data
                 })
+
+        elif data['type'] == 'log_successful_connection':
+            try:
+                # Log successful connection to the database
+                log_data = data['log_data']
+                logger.debug(pformat(log_data))
+
+                await ConnectionLog.objects.acreate(
+                    timestamp=log_data['timestamp'],
+                    local_candidate_type=log_data['local']['candidateType'],
+                    local_protocol=log_data['local']['protocol'],
+                    remote_candidate_type=log_data['remote']['candidateType'],
+                    remote_protocol=log_data['remote']['protocol']
+                )
+            
+            except Exception as e:
+                logger.error(f"Failed to log connection: {e}")
 
     async def send_updated_user_list(self):
         user_list = list(phone_to_session.keys())
