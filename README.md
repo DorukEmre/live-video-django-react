@@ -1,4 +1,8 @@
 
+## Demo
+
+![Project demo gif](live_video_demo.gif)
+
 # How to use:
 The docker-compose.yml is for development only. 
 Only the django Dockerfile is needed to deploy on heroku.
