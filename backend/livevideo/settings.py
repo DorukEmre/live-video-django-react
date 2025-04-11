@@ -98,11 +98,11 @@ INSTALLED_APPS += [
     'livevideo',
     'channels',
     'corsheaders',
-    # 'django.contrib.admin',
-    # 'django.contrib.auth',
+    'django.contrib.admin', # admin panel
+    'django.contrib.auth', # admin panel
     'django.contrib.contenttypes',
     'django.contrib.sessions',
-    # 'django.contrib.messages',
+    'django.contrib.messages', # admin panel
     'django.contrib.staticfiles',
 ]
 
@@ -114,8 +114,8 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    # 'django.contrib.auth.middleware.AuthenticationMiddleware',
-    # 'django.contrib.messages.middleware.MessageMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware', # admin panel
+    'django.contrib.messages.middleware.MessageMiddleware', # admin panel
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -130,8 +130,8 @@ TEMPLATES = [
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
-                # 'django.contrib.auth.context_processors.auth',
-                # 'django.contrib.messages.context_processors.messages',
+                'django.contrib.auth.context_processors.auth', # admin panel
+                'django.contrib.messages.context_processors.messages', # admin
             ],
         },
     },
@@ -170,34 +170,12 @@ DATABASES = {
 }
 
 
-# Password validation
-# https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
-
-# AUTH_PASSWORD_VALIDATORS = [
-#     {
-#         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-#     },
-#     {
-#         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-#     },
-#     {
-#         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-#     },
-#     {
-#         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-#     },
-# ]
-
-
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
 
 
@@ -216,50 +194,51 @@ if os.environ.get('MODE') == 'production':
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# if IS_HEROKU_APP:
-#     ALLOWED_HOSTS = ["*"]
-# else:
-#     ALLOWED_HOSTS = [".localhost", "127.0.0.1", "[::1]", "0.0.0.0", "[::]"]
+if IS_HEROKU_APP:
+    ALLOWED_HOSTS = ["*"]
+else:
+    ALLOWED_HOSTS = [
+        ".localhost", "127.0.0.1", "[::1]", "0.0.0.0", "[::]",
+        f'{os.getenv("ACTUALHOSTNAME")}'
+    ]
 
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    '0.0.0.0',
-    f'{os.getenv("ACTUALHOSTNAME")}',
-]
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8080",
-    "http://localhost:5173",
-    "https://localhost:8080",
-    "https://localhost:5173",
-    f'https://{os.getenv("ACTUALHOSTNAME")}:{os.getenv("PORT")}'
+    f'https://{os.getenv("ACTUALHOSTNAME")}:{os.getenv("PORT")}',
+    f'https://{os.getenv("ACTUALHOSTNAME")}',
 ]
 
 if os.environ.get('MODE') == 'development':
     CORS_ALLOWED_ORIGINS += [
+        "http://localhost:8080",
+        "http://localhost:5173",
+        "https://localhost:8080",
+        "https://localhost:5173",
         f'https://{os.getenv("ACTUALHOSTNAME")}:8080',
         f'https://{os.getenv("ACTUALHOSTNAME")}:5173'
     ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:8080",
-    "http://localhost:5173",
-    "https://localhost:8080",
-    "https://localhost:5173",
     f'https://{os.getenv("ACTUALHOSTNAME")}:{os.getenv("PORT")}', 
+    f'https://{os.getenv("ACTUALHOSTNAME")}', 
 ]
 
 if os.environ.get('MODE') == 'development':
     CSRF_TRUSTED_ORIGINS += [
+        "http://localhost:8080",
+        "http://localhost:5173",
+        "https://localhost:8080",
+        "https://localhost:5173",
         f'https://{os.getenv("ACTUALHOSTNAME")}:8080',
         f'https://{os.getenv("ACTUALHOSTNAME")}:5173'
     ]
 
 CORS_ALLOW_CREDENTIALS = True
-CSRF_COOKIE_DOMAIN = 'localhost'
+CSRF_COOKIE_DOMAIN = os.getenv("ACTUALHOSTNAME")
 CSRF_COOKIE_SAMESITE = 'Lax'  # or 'Strict' or 'None' based on your requirements
-CSRF_COOKIE_SECURE = False  # Set to True if using HTTPS
-# CSRF_COOKIE_SECURE = os.environ.get('MODE') == 'production'
+# CSRF_COOKIE_SECURE = False  # Set to True if using HTTPS
+CSRF_COOKIE_SECURE = os.environ.get('MODE') == 'production'
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_NAME = 'csrftoken'
+
+SESSION_COOKIE_SECURE = True

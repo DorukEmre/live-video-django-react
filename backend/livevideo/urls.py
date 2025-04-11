@@ -1,4 +1,4 @@
-# from django.contrib import admin
+from django.contrib import admin
 from django.urls import path, re_path
 from django.views.generic import TemplateView
 from django.conf import settings
@@ -8,14 +8,19 @@ import logging
 logger = logging.getLogger(__name__)
 
 urlpatterns = [
-    # path('admin/', admin.site.urls),
-    path('api/set-csrf-cookie/', views.set_csrf_cookie, name='set_csrf_cookie'),
+    path('admin/', admin.site.urls),
+    # path('api/set-csrf-cookie/', views.set_csrf_cookie, name='set_csrf_cookie'),
 
     path('api/get-user-details/', views.get_user_details, name='get_user_details'),
     
 ]
 
-# serve react files in prod
+# if settings.DEBUG:
+#     urlpatterns += [
+#         path('', views.set_csrf_cookie),
+#     ]
+
+# Serve react files in prod
 if not settings.DEBUG:
     # urlpatterns += [
     #     path('', TemplateView.as_view(template_name="index.html")),
