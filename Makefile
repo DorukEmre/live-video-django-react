@@ -16,6 +16,7 @@ build_and_deploy: create_volumes_dirs
 	docker compose up --build react_prod && \
 	cp -r ./frontend/dist/* ./backend/frontendDist/ && \
 	cd ./backend && \
+	heroku container:login && \
 	heroku container:push web -a live-video && \
 	heroku container:release web -a live-video
 
