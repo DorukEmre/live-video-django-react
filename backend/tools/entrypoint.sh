@@ -24,6 +24,10 @@ python manage.py makemigrations
 echo "--Applying migrations..."
 python manage.py migrate
 
+# Create superuser for admin panel
+echo "--Creating superuser..."
+python manage.py createsuperuser --noinput
+
 # Collect static files
 if [ "$MODE" = "production" ]; then
   # echo "--Waiting for React to build..."
@@ -38,8 +42,7 @@ fi
 
 echo "PORT: $PORT" 
 
-echo "--Django initialised successfully. Executing "$@""
-# exec "$@"
+echo "--Django initialised successfully."
 
 if [ "$MODE" = "production" ]; then
   exec gunicorn livevideo.asgi:application --bind 0.0.0.0:$PORT -k uvicorn.workers.UvicornWorker
