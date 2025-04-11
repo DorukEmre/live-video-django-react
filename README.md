@@ -3,6 +3,10 @@
 
 ![Project demo gif](live_video_demo.gif)
 
+Successful connections are logged in the SQL database accessible through the Django admin panel:
+
+![Screenshot of admin panel](screenshot_admin_panel.png)
+
 # How to use:
 The docker-compose.yml is for development only. 
 Only the django Dockerfile is needed to deploy on heroku.
@@ -45,26 +49,3 @@ To update manually:
 
 ./backend$ `sudo heroku container:push web -a live-video`
 ./backend$ `sudo heroku container:release web -a live-video`
-
-
-# WebRTC
-[WebRTC API on mdn](https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API)
-Allows web browsers to exchange data without an intermediary
-
-### getUserMedia 
-Method in the WebRTC API that allows web applications to access the user's media devices (camera and microphone).
-
-### peerConnection
-RTCPeerConnection interface in WebRTC used to establish a direct connection between two peers.
-
-### dataChannel
-RTCDataChannel interface in WebRTC that allows for the transmission of arbitrary data directly between peers.
-
-### STUN server
-The peerConnection contacts a STUN server to discover its public IP address and receives an ICE candidate in return. This ICE candidate is used to establish a connection with another peer.
-
-### ICE (Interactive Connectivity Establishment)
-Lets two devices use an intermediary to exchange offers and answers.
-- Candidates: possible network paths between two peers. Each candidate represents a potential way to establish a connection.
-
-[Session description](https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/Connectivity#session_descriptions)
