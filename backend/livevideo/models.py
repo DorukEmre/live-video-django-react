@@ -13,3 +13,11 @@ class ConnectionLog(models.Model):
     local_protocol = models.CharField(max_length=10)
     remote_candidate_type = models.CharField(max_length=10)
     remote_protocol = models.CharField(max_length=10)
+
+    def __str__(self):
+        """String for representing the object (in Admin panel)."""
+        return f'{self.timestamp} with {self.local_candidate_type} - {self.local_protocol} and {self.remote_candidate_type} - {self.remote_protocol}'
+
+    class Meta:
+        verbose_name = "Established Connection Log"
+        verbose_name_plural = "Established Connection Logs"
